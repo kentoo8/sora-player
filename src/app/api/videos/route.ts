@@ -77,8 +77,8 @@ export async function GET() {
         }
         
         scanDir(fullPath, nextAccountName);
-      } else if (entry.isFile() && entry.name.endsWith('.mp4')) {
-        const id = entry.name.replace('.mp4', '');
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
+        const id = entry.name.replace(/\.mp4$/i, '');
         
         // パスを /videos/... の相対URLに変換
         const relativePath = path.relative(videosDir, fullPath);
