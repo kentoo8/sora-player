@@ -1,65 +1,173 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState, useRef } from 'react';
+
+type Video = {
+  id: string;
+  url: string;
+  timestamp: number;
+  title: string;
+  prompt: string;
+  account: string;
+};
 
 export default function Home() {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+
+  useEffect(() => {
+    fetch('/api/videos')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch videos');
+        return res.json();
+      })
+      .then(data => {
+        setVideos(data.videos || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Input要素などにフォーカスがある場合は無視
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        const activeId = videos[currentIndex]?.id;
+        const activeEl = activeId ? videoRefs.current[activeId] : null;
+        if (activeEl) {
+          if (activeEl.paused) {
+            activeEl.play().catch(err => console.log('Play prevented:', err));
+          } else {
+            activeEl.pause();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [videos, currentIndex]);
+
+  // アクティブな動画のみ再生し、他は一時停止する
+  useEffect(() => {
+    if (videos.length === 0) return;
+    const activeId = videos[currentIndex]?.id;
+
+    Object.entries(videoRefs.current).forEach(([id, el]) => {
+      if (!el) return;
+      if (id === activeId) {
+        el.play().catch(e => console.log('Autoplay prevented:', e));
+      } else {
+        el.pause();
+        el.currentTime = 0; // 次回表示される時に最初から再生されるようにリセット
+      }
+    });
+  }, [currentIndex, videos]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-2xl animate-pulse font-light tracking-widest">LOADING...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-red-500 text-xl">{error}</div>
+      </div>
+    );
+  }
+
+  if (videos.length === 0) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-xl text-gray-400">No videos found. Check the directory configuration.</div>
+      </div>
+    );
+  }
+
+  const currentVideo = videos[currentIndex];
+  const date = new Date(currentVideo.timestamp).toLocaleString();
+
+  // シームレスな切り替えのため、現在・前・次の動画を事前にマウントしておく
+  const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null;
+  const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null;
+  const renderVideos = [prevVideo, currentVideo, nextVideo].filter(Boolean) as Video[];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="bg-black text-white h-screen w-full overflow-hidden relative">
+      <div className="h-full w-full flex items-center justify-center relative group bg-black">
+        {renderVideos.map((video) => {
+          const isActive = video.id === currentVideo.id;
+          return (
+            <video
+              key={video.id}
+              ref={el => { videoRefs.current[video.id] = el; }}
+              src={video.url}
+              className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-0 ${
+                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              }`}
+              controls={isActive}
+              loop
+              muted={isMuted}
+              onVolumeChange={(e) => {
+                if (!isActive) return;
+                const target = e.target as HTMLVideoElement;
+                setIsMuted(target.muted);
+              }}
+              playsInline
+              preload="auto"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          );
+        })}
+
+        {/* Overlay Info (Sora/TikTok style) */}
+        <div className="absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+          <div className="max-w-2xl">
+            <p className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
+              {currentVideo.prompt || 'No prompt available'}
+            </p>
+            <div className="flex items-center gap-2 pt-2 border-t border-white/10 text-white/70 text-sm font-medium">
+              {currentVideo.account && (
+                <span className="tracking-wide">@{currentVideo.account}</span>
+              )}
+              <span className="opacity-30">|</span>
+              <span className="tracking-wide">{date}</span>
+              <span className="opacity-30">|</span>
+              <span className="font-mono text-xs opacity-50 truncate max-w-[200px]">{currentVideo.id}</span>
+            </div>
+            <div className="mt-6 flex items-center gap-3">
+              <div className="px-2 py-1 bg-white/10 backdrop-blur-md rounded text-[10px] text-white/60 tracking-[0.2em] uppercase">
+                {currentIndex + 1} / {videos.length}
+              </div>
+              <div className="text-[10px] text-white/40 tracking-widest uppercase">
+                ↑↓ to navigate
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
+
