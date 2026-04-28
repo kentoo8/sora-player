@@ -19,19 +19,27 @@
   }
 }
 
+html,
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior: none;
+  height: 100%;
+  overflow: hidden;
 }
 
 @layer utilities {
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+}
+
+/* 開発用インジケーターを強制的に非表示 */
+nextjs-portal,
+#nextjs-portal,
+[data-nextjs-portal] {
+  display: none !important;
 }
 

@@ -18,6 +18,8 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+  const touchStartY = useRef<number | null>(null);
+  const lastScrollTime = useRef(0);
 
   useEffect(() => {
     fetch('/api/videos')
@@ -36,6 +38,9 @@ export default function Home() {
       });
   }, []);
 
+  const goToNext = () => setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
+  const goToPrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -44,10 +49,10 @@ export default function Home() {
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
+        goToNext();
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setCurrentIndex(prev => Math.max(prev - 1, 0));
+        goToPrev();
       } else if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         const activeId = videos[currentIndex]?.id;
@@ -65,6 +70,28 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [videos, currentIndex]);
+
+  // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      const now = Date.now();
+      const cooldown = 800; // 連打防止（ミリ秒）
+      if (now - lastScrollTime.current < cooldown) return;
+
+      const threshold = 30; // 誤操作防止の閾値
+      if (Math.abs(e.deltaY) > threshold) {
+        if (e.deltaY > 0) {
+          goToNext();
+        } else {
+          goToPrev();
+        }
+        lastScrollTime.current = now;
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [videos.length]); // goToNext/goToPrev が videos.length に依存するため
 
   // アクティブな動画のみ再生し、他は一時停止する
   useEffect(() => {
@@ -114,8 +141,32 @@ export default function Home() {
   const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null;
   const renderVideos = [prevVideo, currentVideo, nextVideo].filter(Boolean) as Video[];
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchStartY.current - touchEndY;
+    const threshold = 50; // pixels
+
+    if (deltaY > threshold) {
+      // Swipe Up -> Next
+      goToNext();
+    } else if (deltaY < -threshold) {
+      // Swipe Down -> Prev
+      goToPrev();
+    }
+    touchStartY.current = null;
+  };
+
   return (
-    <main className="bg-black text-white h-screen w-full overflow-hidden relative">
+    <main 
+      className="bg-black text-white h-screen w-full overflow-hidden relative"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="h-full w-full flex items-center justify-center relative group bg-black">
         {renderVideos.map((video) => {
           const isActive = video.id === currentVideo.id;
@@ -161,7 +212,7 @@ export default function Home() {
                 {currentIndex + 1} / {videos.length}
               </div>
               <div className="text-[10px] text-white/40 tracking-widest uppercase">
-                ↑↓ to navigate
+                ↑↓ or Swipe to navigate
               </div>
             </div>
           </div>
