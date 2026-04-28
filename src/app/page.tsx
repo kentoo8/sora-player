@@ -19,6 +19,7 @@ export default function Home() {
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+  const progressRef = useRef<HTMLDivElement | null>(null);
   const touchStartY = useRef<number | null>(null);
   const lastScrollTime = useRef(0);
 
@@ -125,6 +126,26 @@ export default function Home() {
     setShowControls(false);
   };
 
+  // プログレスバーのスムーズな更新 (60fps)
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateProgress = () => {
+      const activeId = videos[currentIndex]?.id;
+      const el = activeId ? videoRefs.current[activeId] : null;
+      
+      if (el && progressRef.current) {
+        const p = (el.currentTime / el.duration) * 100;
+        progressRef.current.style.width = `${p}%`;
+      }
+      
+      animationFrameId = requestAnimationFrame(updateProgress);
+    };
+
+    animationFrameId = requestAnimationFrame(updateProgress);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [currentIndex, videos]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
@@ -227,7 +248,6 @@ export default function Home() {
               className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-0 ${
                 isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
               }`}
-              controls={showControls && isActive}
               loop
               muted={isMuted}
               onVolumeChange={(e) => {
@@ -265,7 +285,7 @@ export default function Home() {
         </div>
 
         {/* Overlay Info (Sora/TikTok style) */}
-        <div className={`absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${
+        <div className={`absolute bottom-0 left-0 right-0 p-10 pb-6 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}>
           <div className="max-w-2xl">
@@ -285,6 +305,16 @@ export default function Home() {
               {/* 操作ガイドは左上に移動したため削除 */}
             </div>
           </div>
+        </div>
+
+        {/* Custom Progress Bar */}
+        <div className={`absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 z-40 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
+          <div 
+            ref={progressRef}
+            className="h-full bg-white/30"
+          />
         </div>
       </div>
     </main>
