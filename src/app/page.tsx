@@ -267,7 +267,7 @@ export default function Home() {
         }`}>
           <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
             {/* Navigation Guide */}
-            <span className="text-[9px] text-white/40 tracking-[0.2em] uppercase font-medium">
+            <span className="text-[9px] text-white/70 tracking-[0.2em] uppercase font-medium">
               ↑↓ OR SWIPE
             </span>
             
