@@ -135,6 +135,11 @@ export default function Home() {
     };
   }, []);
 
+  const handleMouseLeave = () => {
+    setShowControls(false);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
@@ -223,6 +228,8 @@ export default function Home() {
       className="bg-black text-white h-screen w-full overflow-hidden relative"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onMouseEnter={resetControlsTimer}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="h-full w-full flex items-center justify-center relative group bg-black">
         {renderVideos.map((video) => {
@@ -249,7 +256,7 @@ export default function Home() {
         })}
 
         {/* Top UI Container */}
-        <div className={`absolute top-8 right-8 flex items-center z-30 pointer-events-none transition-opacity duration-1000 ${
+        <div className={`absolute top-8 right-8 flex items-center z-30 pointer-events-none transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}>
           <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
@@ -272,7 +279,7 @@ export default function Home() {
         </div>
 
         {/* Overlay Info (Sora/TikTok style) */}
-        <div className={`absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 transition-opacity duration-1000 ${
+        <div className={`absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}>
           <div className="max-w-2xl">
