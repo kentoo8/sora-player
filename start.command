@@ -6,6 +6,13 @@ echo "------------------------------------------"
 echo "  Sora Player - Startup Script"
 echo "------------------------------------------"
 
+# ポート3000が既に使用されているか確認
+if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+    echo "サーバーは既に起動しているようです。ブラウザを開きます..."
+    open http://localhost:3000
+    exit 0
+fi
+
 # Node.js がインストールされているか確認
 if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
     echo "エラー: Node.jsが見つかりません。"

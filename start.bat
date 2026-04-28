@@ -7,6 +7,14 @@ echo ------------------------------------------
 echo   Sora Player - Startup Script (Windows)
 echo ------------------------------------------
 
+:: ポート3000が既に使用されているか確認
+netstat -ano | findstr :3000 | findstr LISTENING >nul
+if %errorlevel% equ 0 (
+    echo サーバーは既に起動しているようです。ブラウザを開きます...
+    start http://localhost:3000
+    exit /b 0
+)
+
 :: Node.js がインストールされているか確認
 where node >nul 2>nul && where npm >nul 2>nul
 if %errorlevel% neq 0 (
