@@ -17,11 +17,10 @@ export default function Home() {
   const [error, setError] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const touchStartY = useRef<number | null>(null);
   const lastScrollTime = useRef(0);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetch('/api/videos')
@@ -40,15 +39,6 @@ export default function Home() {
         setLoading(false);
       });
   }, []);
-
-  // UI表示のタイマーリセット関数
-  const resetControlsTimer = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      setShowControls(false);
-    }, 3000);
-  };
 
   const goToNext = () => {
     setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
@@ -125,19 +115,14 @@ export default function Home() {
     });
   }, [currentIndex, videos]);
 
-  // マウス移動でUIを表示
-  useEffect(() => {
-    window.addEventListener('mousemove', resetControlsTimer);
-    resetControlsTimer();
-    return () => {
-      window.removeEventListener('mousemove', resetControlsTimer);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    };
-  }, []);
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const threshold = 200; // 上下 200px を反応範囲にする
+    const isNearEdge = e.clientY < threshold || e.clientY > window.innerHeight - threshold;
+    setShowControls(isNearEdge);
+  };
 
   const handleMouseLeave = () => {
     setShowControls(false);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
   };
 
   if (loading) {
@@ -228,7 +213,7 @@ export default function Home() {
       className="bg-black text-white h-screen w-full overflow-hidden relative"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      onMouseEnter={resetControlsTimer}
+      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
       <div className="h-full w-full flex items-center justify-center relative group bg-black">
