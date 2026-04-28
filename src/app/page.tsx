@@ -16,7 +16,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [showControls, setShowControls] = useState(true);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const touchStartY = useRef<number | null>(null);
@@ -242,6 +242,7 @@ export default function Home() {
               className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-0 ${
                 isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
               }`}
+              controls={showControls && isActive}
               loop
               muted={isMuted}
               onVolumeChange={(e) => {
