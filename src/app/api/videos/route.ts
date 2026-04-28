@@ -24,10 +24,18 @@ function decodeTime(id: string): number {
 }
 
 export async function GET() {
-  const videosDir = process.env.VIDEOS_DIR;
+  let videosDir = process.env.VIDEOS_DIR;
+  const defaultDir = path.join(process.cwd(), 'videos');
   
   if (!videosDir || !fs.existsSync(videosDir)) {
-    return NextResponse.json({ error: 'Videos directory not configured or not found' }, { status: 404 });
+    if (fs.existsSync(defaultDir)) {
+      videosDir = defaultDir;
+    } else {
+      return NextResponse.json({ 
+        error: 'DIRECTORY_NOT_CONFIGURED',
+        message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成して動画を入れてください。'
+      }, { status: 404 });
+    }
   }
 
   const videos: { id: string, url: string, timestamp: number, title?: string, prompt?: string, account?: string }[] = [];

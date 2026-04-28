@@ -23,9 +23,10 @@ export default function Home() {
 
   useEffect(() => {
     fetch('/api/videos')
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch videos');
-        return res.json();
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to fetch videos');
+        return data;
       })
       .then(data => {
         setVideos(data.videos || []);
@@ -112,23 +113,54 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="text-2xl animate-pulse font-light tracking-widest">LOADING...</div>
+        <div className="text-2xl animate-pulse font-light tracking-widest uppercase">Initializing...</div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || videos.length === 0) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="text-red-500 text-xl">{error}</div>
-      </div>
-    );
-  }
+      <div className="flex h-screen items-center justify-center bg-black text-white p-8">
+        <div className="max-w-md w-full p-8 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-2xl">
+          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
+            <span className="text-3xl">🎥</span> Ready to start?
+          </h2>
+          
+          <div className="space-y-6 text-white/70">
+            <p className="leading-relaxed">
+              動画を再生するには、プロジェクトのフォルダ内に <code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">videos</code> フォルダを作成してください。
+            </p>
 
-  if (videos.length === 0) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="text-xl text-gray-400">No videos found. Check the directory configuration.</div>
+            <div className="bg-black/40 p-4 rounded-2xl border border-white/5 font-mono text-sm space-y-2">
+              <div className="flex gap-2">
+                <span className="text-blue-400">sora-player/</span>
+              </div>
+              <div className="flex gap-2 ml-4">
+                <span className="text-white/40">├──</span>
+                <span className="text-green-400">videos/</span>
+                <span className="text-white/20 italic">(← ここに動画をいれる)</span>
+              </div>
+              <div className="flex gap-2 ml-4">
+                <span className="text-white/40">└──</span>
+                <span>package.json</span>
+              </div>
+            </div>
+
+            <div className="pt-4 flex flex-col gap-3">
+              <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Alternative for power users</p>
+              <p className="text-sm">
+                または、<code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">.env</code> ファイルに <code className="text-blue-400">VIDEOS_DIR=/path/to/videos</code> を指定することも可能です。
+              </p>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-8 w-full py-4 bg-white text-black font-semibold rounded-2xl hover:bg-gray-200 transition-colors"
+          >
+            フォルダを作成したので更新する
+          </button>
+        </div>
       </div>
     );
   }

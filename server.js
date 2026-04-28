@@ -14,16 +14,24 @@ const port = process.env.PORT || 3000;
 app.prepare().then(() => {
   const server = express();
 
-  const videosDir = process.env.VIDEOS_DIR;
+  let videosDir = process.env.VIDEOS_DIR;
+  const defaultDir = path.join(__dirname, 'videos');
+
   if (!videosDir) {
-    console.error('Error: VIDEOS_DIR environment variable is not set.');
-    process.exit(1);
+    if (require('fs').existsSync(defaultDir)) {
+      videosDir = defaultDir;
+      console.log(`> Using default video directory: ${videosDir}`);
+    } else {
+      console.warn('Warning: VIDEOS_DIR environment variable is not set and default "videos" folder not found.');
+    }
   }
 
-  // 外部ディレクトリの動画ファイルを静的配信
-  server.use('/videos', express.static(videosDir, {
-    acceptRanges: true, // Rangeリクエストをサポート（動画再生に必須）
-  }));
+  // 外部ディレクトリの動画ファイルを静的配信（ディレクトリが存在する場合のみ）
+  if (videosDir && require('fs').existsSync(videosDir)) {
+    server.use('/videos', express.static(videosDir, {
+      acceptRanges: true,
+    }));
+  }
 
   // それ以外のリクエストはNext.jsに任せる
   server.all(/.*/, (req, res) => {
