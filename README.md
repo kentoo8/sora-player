@@ -2,8 +2,18 @@
 
 Sora動画をローカルでプレビュー・管理するためのビューア。
 
+## 準備
+- **Node.js**: [公式サイト](https://nodejs.org/)から「推奨版 (LTS)」をダウンロードしてインストールしてください。
+
 ## 起動
 
+### 最も簡単な方法
+1. 各OSに合わせて以下のファイルをダブルクリックします。
+   - **Mac**: `start.command`
+   - **Windows**: `start.bat`
+2. ブラウザで `http://localhost:3000` を開きます。
+
+### コマンドラインでの起動
 ```bash
 npm install
 npm run dev
