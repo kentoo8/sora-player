@@ -6,7 +6,8 @@
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "open": "open http://localhost:3000 || start http://localhost:3000"
   },
   "dependencies": {
     "express": "^5.2.1",
