@@ -1,6 +1,9 @@
 # Hio1345 Sora Player
 
-Sora2のエクスポート動画ファイルをローカルでプレビュー・管理するためのビューア。
+<img src="assets/preview.png" width="450" />
+
+
+Sora2のエクスポートファイルをローカルで閲覧するための動画プレイヤー。
 
 ## 準備
 1. **Node.js**: [公式サイト](https://nodejs.org/)から「推奨版 (LTS)」をダウンロードしてインストールしてください。
