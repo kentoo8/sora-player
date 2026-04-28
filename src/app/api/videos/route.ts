@@ -118,8 +118,13 @@ export async function GET() {
 
         // どうしても取れない場合はファイルの作成日時をフォールバックとして使う
         if (timestamp === 0) {
-          const stat = fs.statSync(fullPath);
-          timestamp = stat.mtimeMs;
+          try {
+            const stat = fs.statSync(fullPath);
+            timestamp = stat.mtimeMs;
+          } catch (e) {
+            console.error(`Failed to stat ${fullPath}`, e);
+            timestamp = 0; // 最古として扱う
+          }
         }
 
         videos.push({
@@ -135,13 +140,19 @@ export async function GET() {
   }
 
   try {
+    if (!videosDir) {
+      throw new Error('videosDir is undefined');
+    }
     scanDir(videosDir);
     // 新しい順（降順）にソート
-    videos.sort((a, b) => b.timestamp - a.timestamp);
+    videos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     
     return NextResponse.json({ videos });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to scan videos' }, { status: 500 });
+  } catch (err: any) {
+    console.error('API Error:', err);
+    return NextResponse.json({ 
+      error: 'SERVER_ERROR',
+      message: `スキャン中にエラーが発生しました: ${err.message}` 
+    }, { status: 500 });
   }
 }
