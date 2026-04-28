@@ -193,7 +193,7 @@ export default function Home() {
         })}
 
         {/* Top UI Container */}
-        <div className="absolute top-8 right-8 flex items-center z-30 pointer-events-none">
+        <div className="absolute top-8 right-8 flex items-center z-30 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
           <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
             {/* Navigation Guide */}
             <span className="text-[9px] text-white/40 tracking-[0.2em] uppercase font-medium">
