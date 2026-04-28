@@ -17,9 +17,11 @@ export default function Home() {
   const [error, setError] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const touchStartY = useRef<number | null>(null);
   const lastScrollTime = useRef(0);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetch('/api/videos')
@@ -109,6 +111,26 @@ export default function Home() {
       }
     });
   }, [currentIndex, videos]);
+
+  // マウス移動でUIを表示し、一定時間（3秒）操作がない場合に隠す
+  useEffect(() => {
+    const handleMouseMove = () => {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    // 初期表示時もタイマーを開始
+    handleMouseMove();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -225,7 +247,9 @@ export default function Home() {
         })}
 
         {/* Top UI Container */}
-        <div className="absolute top-8 right-8 flex items-center z-30 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+        <div className={`absolute top-8 right-8 flex items-center z-30 pointer-events-none transition-opacity duration-1000 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
           <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
             {/* Navigation Guide */}
             <span className="text-[9px] text-white/40 tracking-[0.2em] uppercase font-medium">
@@ -246,7 +270,9 @@ export default function Home() {
         </div>
 
         {/* Overlay Info (Sora/TikTok style) */}
-        <div className="absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+        <div className={`absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 transition-opacity duration-1000 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
           <div className="max-w-2xl">
             <p className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
               {currentVideo.prompt || 'No prompt available'}
