@@ -192,6 +192,16 @@ export default function Home() {
           );
         })}
 
+        {/* Top Right Counter */}
+        <div className="absolute top-8 right-8 z-30 pointer-events-none">
+          <div className="px-3 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
+            <span className="text-[11px] text-white/80 font-mono tracking-wider">
+              {currentIndex + 1} <span className="opacity-40">/</span> {videos.length}
+            </span>
+          </div>
+        </div>
+
         {/* Overlay Info (Sora/TikTok style) */}
         <div className="absolute bottom-0 left-0 right-0 p-10 pt-32 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
           <div className="max-w-2xl">
@@ -208,9 +218,6 @@ export default function Home() {
               <span className="font-mono text-xs opacity-50 truncate max-w-[200px]">{currentVideo.id}</span>
             </div>
             <div className="mt-6 flex items-center gap-3">
-              <div className="px-2 py-1 bg-white/10 backdrop-blur-md rounded text-[10px] text-white/60 tracking-[0.2em] uppercase">
-                {currentIndex + 1} / {videos.length}
-              </div>
               <div className="text-[10px] text-white/40 tracking-widest uppercase">
                 ↑↓ or Swipe to navigate
               </div>
