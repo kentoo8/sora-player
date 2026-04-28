@@ -41,8 +41,21 @@ export default function Home() {
       });
   }, []);
 
-  const goToNext = () => setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
-  const goToPrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+  // UI表示のタイマーリセット関数
+  const resetControlsTimer = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
+
+  const goToNext = () => {
+    setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
+  };
+  const goToPrev = () => {
+    setCurrentIndex(prev => Math.max(prev - 1, 0));
+  };
 
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
@@ -107,27 +120,17 @@ export default function Home() {
         el.play().catch(e => console.log('Autoplay prevented:', e));
       } else {
         el.pause();
-        el.currentTime = 0; // 次回表示される時に最初から再生されるようにリセット
+        el.currentTime = 0;
       }
     });
   }, [currentIndex, videos]);
 
-  // マウス移動でUIを表示し、一定時間（3秒）操作がない場合に隠す
+  // マウス移動でUIを表示
   useEffect(() => {
-    const handleMouseMove = () => {
-      setShowControls(true);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    // 初期表示時もタイマーを開始
-    handleMouseMove();
-
+    window.addEventListener('mousemove', resetControlsTimer);
+    resetControlsTimer();
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousemove', resetControlsTimer);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
   }, []);
@@ -232,7 +235,6 @@ export default function Home() {
               className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-0 ${
                 isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
               }`}
-              controls={isActive}
               loop
               muted={isMuted}
               onVolumeChange={(e) => {
