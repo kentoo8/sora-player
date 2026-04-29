@@ -56,10 +56,26 @@ export default function Home() {
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        goToNext();
+        if (e.metaKey && e.shiftKey) {
+          setCurrentIndex(videos.length - 1);
+        } else if (e.metaKey) {
+          setCurrentIndex(prev => Math.min(prev + 100, videos.length - 1));
+        } else if (e.shiftKey) {
+          setCurrentIndex(prev => Math.min(prev + 10, videos.length - 1));
+        } else {
+          goToNext();
+        }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        goToPrev();
+        if (e.metaKey && e.shiftKey) {
+          setCurrentIndex(0);
+        } else if (e.metaKey) {
+          setCurrentIndex(prev => Math.max(prev - 100, 0));
+        } else if (e.shiftKey) {
+          setCurrentIndex(prev => Math.max(prev - 10, 0));
+        } else {
+          goToPrev();
+        }
       } else if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         const activeId = videos[currentIndex]?.id;
