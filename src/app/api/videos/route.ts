@@ -62,6 +62,8 @@ export async function GET() {
   }
 
   const videos: any[] = [];
+  const seenPaths = new Set<string>();
+  const seenFilenames = new Set<string>();
 
   // ディレクトリを再帰的に走査
   function scanDir(dir: string, accountName?: string) {
@@ -85,6 +87,15 @@ export async function GET() {
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       
+      // 実パスを取得して重複チェック (シンボリックリンク等による重複防止)
+      let realPath = '';
+      try {
+        realPath = fs.realpathSync(fullPath);
+        if (seenPaths.has(realPath)) continue;
+      } catch (e) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
         // サムネイルフォルダはスキップ
         if (entry.name === '_thumbnails') continue;
@@ -103,12 +114,18 @@ export async function GET() {
             nextAccountName = entry.name;
           }
         }
+        
+        seenPaths.add(realPath);
         scanDir(fullPath, nextAccountName);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
+        const filenameId = entry.name.replace(/\.mp4$/i, '');
+
+        // ファイル名（ID）ベースで重複チェック (共有動画対策)
+        if (seenFilenames.has(filenameId)) continue;
+
         const relativePath = path.relative(absoluteVideosDir, fullPath);
         const url = `/videos/${relativePath.split(path.sep).join('/')}`;
         const id = relativePath.split(path.sep).join('@@').replace(/\.mp4$/i, '');
-        const filenameId = entry.name.replace(/\.mp4$/i, '');
 
         const thumbFilenameWebp = `${id}.webp`;
         const thumbFilenameJpg = `${id}.jpg`;
@@ -146,19 +163,19 @@ export async function GET() {
           } catch (e) {}
         }
 
-        // URLで重複チェック
-        if (!videos.some(v => v.url === url)) {
-          videos.push({
-            id,
-            filename: filenameId,
-            url,
-            timestamp,
-            title,
-            prompt,
-            account: accountName,
-            thumbnail: thumbUrl
-          });
-        }
+        // 重複チェックを実パスベースで行う
+        seenPaths.add(realPath);
+        seenFilenames.add(filenameId);
+        videos.push({
+          id,
+          filename: filenameId,
+          url,
+          timestamp,
+          title,
+          prompt,
+          account: accountName,
+          thumbnail: thumbUrl
+        });
       }
     }
   }
