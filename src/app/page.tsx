@@ -345,12 +345,12 @@ export default function Home() {
                       if (e.key === 'Escape') setIsEditingIndex(false);
                     }}
                     onBlur={handleIndexJump}
-                    className="w-full h-full bg-white/10 border border-white/20 rounded text-[16px] text-white font-mono font-bold text-center focus:outline-none focus:bg-white/20"
+                    className="w-full h-full bg-white/10 border border-white/20 rounded text-[16px] text-white font-mono font-medium text-center focus:outline-none focus:bg-white/20"
                   />
                 ) : (
                   <span 
                     onClick={startEditing}
-                    className="w-full h-full flex items-center justify-center text-[16px] text-white font-mono font-bold tracking-tighter cursor-text hover:text-blue-400 transition-colors"
+                    className="w-full h-full flex items-center justify-center text-[16px] text-white font-mono font-medium tracking-tighter cursor-text hover:text-blue-400 transition-colors"
                     title="Click to jump to number"
                   >
                     {currentIndex + 1}
@@ -358,7 +358,7 @@ export default function Home() {
                 )}
               </div>
               <div className="w-4 h-[1px] bg-white/20" />
-              <span className="text-[10px] text-white/20 font-mono text-center">
+              <span className="text-[10px] text-white/20 font-mono font-light text-center">
                 {videos.length}
               </span>
             </div>
