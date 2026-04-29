@@ -9,7 +9,8 @@ type Video = {
   timestamp: number;
   title: string;
   prompt: string;
-  account: string;
+  account?: string;
+  thumbnail?: string; // 追記：サーバー保存済みのサムネイルURL
 };
 
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
@@ -17,7 +18,7 @@ const thumbnailCache = new Map<string, string>();
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
 function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, index: number, isActive: boolean, onClick: () => void }) {
-  const [cachedUrl, setCachedUrl] = useState<string | undefined>(thumbnailCache.get(video.url));
+  const [cachedUrl, setCachedUrl] = useState<string | undefined>(video.thumbnail || thumbnailCache.get(video.url));
   const [shouldLoad, setShouldLoad] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -55,9 +56,17 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 品質を0.6に下げて軽量化
+        const dataUrl = canvas.toDataURL('image/webp', 0.6); // WebPに変更してさらに高圧縮
         thumbnailCache.set(video.url, dataUrl);
         setCachedUrl(dataUrl);
+        
+        // サーバーへ永続保存をリクエスト（非同期）
+        fetch('/api/videos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: video.id, dataUrl })
+        }).catch(err => console.error('Failed to save thumbnail to server:', err));
+        
         console.log(`[Thumbnail] Captured and cached: ${video.filename}`);
       }
     } catch (e) {
@@ -91,6 +100,12 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
         <img 
           src={cachedUrl}
           alt=""
+          onError={() => {
+            // 画像の読み込みに失敗（パス変更やファイル欠損）したら
+            // キャッシュをクリアしてビデオからの再取得に切り替える
+            setCachedUrl(undefined);
+            thumbnailCache.delete(video.url);
+          }}
           className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500 animate-in fade-in duration-700"
         />
       ) : shouldLoad ? (
@@ -218,7 +233,15 @@ export default function Home() {
               const ctx = canvas.getContext('2d');
               if (ctx) {
                 ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-                thumbnailCache.set(video.url, canvas.toDataURL('image/jpeg', 0.6));
+                const dataUrl = canvas.toDataURL('image/webp', 0.6);
+                thumbnailCache.set(video.url, dataUrl);
+                
+                // サーバーへ永続保存をリクエスト（非同期）
+                fetch('/api/videos', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: video.id, dataUrl })
+                }).catch(err => console.error('Failed to save prefetch thumbnail:', err));
               }
             } catch (e) {
               console.error('Background prefetch failed:', e);

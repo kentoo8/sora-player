@@ -38,10 +38,27 @@ export async function GET() {
     }
   }
 
-  const videos: { id: string, url: string, timestamp: number, title?: string, prompt?: string, account?: string }[] = [];
+  // サムネイルフォルダの作成
+  const thumbnailsDir = path.join(videosDir, '_thumbnails');
+  if (!fs.existsSync(thumbnailsDir)) {
+    fs.mkdirSync(thumbnailsDir, { recursive: true });
+  }
+
+  const videos: { 
+    id: string, 
+    url: string, 
+    timestamp: number, 
+    title?: string, 
+    prompt?: string, 
+    account?: string,
+    thumbnail?: string // 追記：サムネイルのURL
+  }[] = [];
 
   // ディレクトリを再帰的に走査
   function scanDir(dir: string, accountName?: string) {
+    // サムネイルフォルダはスキップ
+    if (path.basename(dir) === '_thumbnails') return;
+
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     
     // accountNameが未設定の場合、videosDirの直下であればそれがアカウント名
@@ -87,13 +104,26 @@ export async function GET() {
         scanDir(fullPath, nextAccountName);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
         // パスを /videos/... の相対URLに変換
-        const relativePath = path.relative(videosDir, fullPath);
+        const relativePath = path.relative(videosDir!, fullPath);
         const url = `/videos/${relativePath.split(path.sep).join('/')}`;
         
         // IDを一意にするため、相対パスをベースにする
         const id = relativePath.split(path.sep).join('_').replace(/\.mp4$/i, '');
         // メタデータ検索用にはファイル名（ULID）を使用
         const filenameId = entry.name.replace(/\.mp4$/i, '');
+
+        // サムネイルの存在確認（.webp を優先し、なければ .jpg を探す）
+        const thumbFilenameWebp = `${id}.webp`;
+        const thumbFilenameJpg = `${id}.jpg`;
+        const thumbPathWebp = path.join(thumbnailsDir, thumbFilenameWebp);
+        const thumbPathJpg = path.join(thumbnailsDir, thumbFilenameJpg);
+        
+        let thumbUrl = undefined;
+        if (fs.existsSync(thumbPathWebp)) {
+          thumbUrl = `/videos/_thumbnails/${thumbFilenameWebp}`;
+        } else if (fs.existsSync(thumbPathJpg)) {
+          thumbUrl = `/videos/_thumbnails/${thumbFilenameJpg}`;
+        }
 
         let timestamp = 0;
         let title = '';
@@ -140,7 +170,8 @@ export async function GET() {
             timestamp,
             title,
             prompt,
-            account: accountName
+            account: accountName,
+            thumbnail: thumbUrl
           });
         }
       }
@@ -162,5 +193,38 @@ export async function GET() {
       error: 'SERVER_ERROR',
       message: `スキャン中にエラーが発生しました: ${err.message}` 
     }, { status: 500 });
+  }
+}
+
+// サムネイル保存用の POST ハンドラ
+export async function POST(request: Request) {
+  try {
+    const { id, dataUrl } = await request.json();
+    if (!id || !dataUrl) {
+      return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
+    }
+
+    let videosDir = process.env.VIDEOS_DIR;
+    const defaultDir = path.join(process.cwd(), 'videos');
+    if (!videosDir || !fs.existsSync(videosDir)) {
+      videosDir = defaultDir;
+    }
+
+    const thumbnailsDir = path.join(videosDir, '_thumbnails');
+    if (!fs.existsSync(thumbnailsDir)) {
+      fs.mkdirSync(thumbnailsDir, { recursive: true });
+    }
+
+    // data:image/webp;base64,.... をバイナリに変換
+    const base64Data = dataUrl.replace(/^data:image\/(webp|jpeg);base64,/, "");
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    const filePath = path.join(thumbnailsDir, `${id}.webp`);
+    fs.writeFileSync(filePath, buffer);
+
+    return NextResponse.json({ success: true, path: filePath });
+  } catch (err: any) {
+    console.error('Thumbnail Save Error:', err);
+    return NextResponse.json({ error: 'SAVE_FAILED', message: err.message }, { status: 500 });
   }
 }
