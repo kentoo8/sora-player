@@ -258,9 +258,10 @@ export default function Home() {
   }, [currentIndex, videos, isMuted, showThumbnailGrid]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const threshold = 200; // 反応範囲 (px)
-    const isNearBottom = e.clientY > window.innerHeight - threshold;
-    const isNearLeft = e.clientX < threshold;
+    const bottomThreshold = window.innerHeight * 0.4; // 下部40%を判定範囲に
+    const leftThreshold = 200; // 左側は固定値
+    const isNearBottom = e.clientY > window.innerHeight - bottomThreshold;
+    const isNearLeft = e.clientX < leftThreshold;
     setShowControls(isNearBottom || isNearLeft);
   };
 
