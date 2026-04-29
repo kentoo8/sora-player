@@ -292,13 +292,13 @@ export default function Home() {
             </button>
 
             {/* Counter */}
-            <div className="flex flex-col items-center gap-1 my-2">
-              <span className="text-[14px] text-white font-mono font-bold leading-none tracking-tighter">
-                {String(currentIndex + 1).padStart(2, '0')}
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[16px] text-white font-mono font-bold leading-none tracking-tighter">
+                {currentIndex + 1}
               </span>
               <div className="w-4 h-[1px] bg-white/20" />
-              <span className="text-[10px] text-white/30 font-mono">
-                {String(videos.length).padStart(2, '0')}
+              <span className="text-[10px] text-white/20 font-mono">
+                {videos.length}
               </span>
             </div>
 
