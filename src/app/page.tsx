@@ -45,14 +45,17 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
     try {
       const videoEl = videoRef.current;
       const canvas = document.createElement('canvas');
-      // 元の動画サイズに合わせてキャプチャ（アスペクト比維持）
-      canvas.width = videoEl.videoWidth / 2; // パフォーマンスのため半分にリサイズ
-      canvas.height = videoEl.videoHeight / 2;
+      
+      // サムネイル用にサイズを大幅に縮小（幅300px固定）
+      const targetWidth = 300;
+      const scale = targetWidth / videoEl.videoWidth;
+      canvas.width = targetWidth;
+      canvas.height = videoEl.videoHeight * scale;
       
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 圧縮率80%
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 品質を0.6に下げて軽量化
         thumbnailCache.set(video.url, dataUrl);
         setCachedUrl(dataUrl);
       }
