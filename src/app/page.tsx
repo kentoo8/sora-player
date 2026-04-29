@@ -125,6 +125,28 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
       )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
+      {/* Finderで開くボタン (ホバー時のみ表示) */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          e.currentTarget.blur();
+          fetch('/api/videos', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: video.id })
+          }).catch(err => console.error('Failed to open folder:', err));
+        }}
+        className="absolute bottom-2 right-2 z-10 w-7 h-7 flex items-center justify-center bg-black/60 backdrop-blur-md rounded-full text-white/40 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-[4px] group-hover:translate-x-0 shadow-lg border border-white/10 focus:outline-none"
+        title="Finderでフォルダを開く"
+      >
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      </button>
+
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
         <p className="text-[10px] text-white/40 font-mono mb-1">#{index + 1}</p>
         <p className="text-xs text-white/90 font-medium line-clamp-2 leading-tight">
