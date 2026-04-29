@@ -18,6 +18,9 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [isEditingIndex, setIsEditingIndex] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const progressRef = useRef<HTMLDivElement | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -47,6 +50,27 @@ export default function Home() {
   const goToPrev = () => {
     setCurrentIndex(prev => Math.max(prev - 1, 0));
   };
+
+  const handleIndexJump = () => {
+    const num = parseInt(editValue, 10);
+    if (!isNaN(num)) {
+      const target = Math.max(0, Math.min(num - 1, videos.length - 1));
+      setCurrentIndex(target);
+    }
+    setIsEditingIndex(false);
+  };
+
+  const startEditing = () => {
+    setEditValue(String(currentIndex + 1));
+    setIsEditingIndex(true);
+  };
+
+  useEffect(() => {
+    if (isEditingIndex && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [isEditingIndex]);
 
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
@@ -309,9 +333,28 @@ export default function Home() {
 
             {/* Counter */}
             <div className="flex flex-col items-center gap-1">
-              <span className="text-[16px] text-white font-mono font-bold leading-none tracking-tighter">
-                {currentIndex + 1}
-              </span>
+              {isEditingIndex ? (
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleIndexJump();
+                    if (e.key === 'Escape') setIsEditingIndex(false);
+                  }}
+                  onBlur={handleIndexJump}
+                  className="w-12 bg-white/10 border border-white/20 rounded text-[16px] text-white font-mono font-bold text-center focus:outline-none focus:bg-white/20"
+                />
+              ) : (
+                <span 
+                  onClick={startEditing}
+                  className="text-[16px] text-white font-mono font-bold leading-none tracking-tighter cursor-text hover:text-blue-400 transition-colors"
+                  title="Click to jump to number"
+                >
+                  {currentIndex + 1}
+                </span>
+              )}
               <div className="w-4 h-[1px] bg-white/20" />
               <span className="text-[10px] text-white/20 font-mono">
                 {videos.length}
