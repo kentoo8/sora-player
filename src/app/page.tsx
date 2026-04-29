@@ -144,17 +144,19 @@ export default function Home() {
   useEffect(() => {
     if (videos.length === 0) return;
     const activeId = videos[currentIndex]?.id;
-
+    
     Object.entries(videoRefs.current).forEach(([id, el]) => {
       if (!el) return;
       if (id === activeId) {
+        el.muted = isMuted;
         el.play().catch(e => console.log('Autoplay prevented:', e));
       } else {
         el.pause();
+        el.muted = true;
         el.currentTime = 0;
       }
     });
-  }, [currentIndex, videos]);
+  }, [currentIndex, videos, isMuted]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const threshold = 200; // 反応範囲 (px)

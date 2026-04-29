@@ -86,18 +86,21 @@ export async function GET() {
         
         scanDir(fullPath, nextAccountName);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
-        const id = entry.name.replace(/\.mp4$/i, '');
-        
         // パスを /videos/... の相対URLに変換
         const relativePath = path.relative(videosDir, fullPath);
         const url = `/videos/${relativePath.split(path.sep).join('/')}`;
+        
+        // IDを一意にするため、相対パスをベースにする
+        const id = relativePath.split(path.sep).join('_').replace(/\.mp4$/i, '');
+        // メタデータ検索用にはファイル名（ULID）を使用
+        const filenameId = entry.name.replace(/\.mp4$/i, '');
 
         let timestamp = 0;
         let title = '';
         let prompt = '';
 
         // メタデータからの抽出を試みる
-        const meta = metadataMap.get(id);
+        const meta = metadataMap.get(filenameId);
         if (meta) {
           title = meta.title || '';
           prompt = meta.prompt || '';
