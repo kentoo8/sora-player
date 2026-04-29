@@ -332,31 +332,33 @@ export default function Home() {
             </button>
 
             {/* Counter */}
-            <div className="flex flex-col items-center gap-1">
-              {isEditingIndex ? (
-                <input
-                  ref={editInputRef}
-                  type="text"
-                  value={editValue}
-                  onChange={e => setEditValue(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleIndexJump();
-                    if (e.key === 'Escape') setIsEditingIndex(false);
-                  }}
-                  onBlur={handleIndexJump}
-                  className="w-12 bg-white/10 border border-white/20 rounded text-[16px] text-white font-mono font-bold text-center focus:outline-none focus:bg-white/20"
-                />
-              ) : (
-                <span 
-                  onClick={startEditing}
-                  className="text-[16px] text-white font-mono font-bold leading-none tracking-tighter cursor-text hover:text-blue-400 transition-colors"
-                  title="Click to jump to number"
-                >
-                  {currentIndex + 1}
-                </span>
-              )}
+            <div className="flex flex-col items-center gap-1 w-12">
+              <div className="h-7 w-full flex items-center justify-center">
+                {isEditingIndex ? (
+                  <input
+                    ref={editInputRef}
+                    type="text"
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleIndexJump();
+                      if (e.key === 'Escape') setIsEditingIndex(false);
+                    }}
+                    onBlur={handleIndexJump}
+                    className="w-full h-full bg-white/10 border border-white/20 rounded text-[16px] text-white font-mono font-bold text-center focus:outline-none focus:bg-white/20"
+                  />
+                ) : (
+                  <span 
+                    onClick={startEditing}
+                    className="w-full h-full flex items-center justify-center text-[16px] text-white font-mono font-bold tracking-tighter cursor-text hover:text-blue-400 transition-colors"
+                    title="Click to jump to number"
+                  >
+                    {currentIndex + 1}
+                  </span>
+                )}
+              </div>
               <div className="w-4 h-[1px] bg-white/20" />
-              <span className="text-[10px] text-white/20 font-mono">
+              <span className="text-[10px] text-white/20 font-mono text-center">
                 {videos.length}
               </span>
             </div>
