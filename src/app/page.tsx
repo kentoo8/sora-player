@@ -58,11 +58,19 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
         const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 品質を0.6に下げて軽量化
         thumbnailCache.set(video.url, dataUrl);
         setCachedUrl(dataUrl);
+        console.log(`[Thumbnail] Captured and cached: ${video.filename}`);
       }
     } catch (e) {
       console.error('Failed to capture frame:', e);
     }
   };
+
+  // 背景プリフェッチ用のログ
+  useEffect(() => {
+    if (cachedUrl) {
+      // console.log(`[Thumbnail] Loaded from cache: ${video.filename}`);
+    }
+  }, [cachedUrl, video.filename]);
 
   // ギャラリーを開いた瞬間に、現在再生中の動画まで即座にジャンプする
   useEffect(() => {
@@ -83,7 +91,7 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
         <img 
           src={cachedUrl}
           alt=""
-          className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500"
+          className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500 animate-in fade-in duration-700"
         />
       ) : shouldLoad ? (
         <video 
@@ -98,9 +106,7 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
       ) : null}
 
       {!cachedUrl && shouldLoad && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-white/5 border-t-white/20 rounded-full animate-spin" />
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/3 to-transparent animate-pulse" />
       )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -159,6 +165,86 @@ export default function Home() {
         setLoading(false);
       });
   }, []);
+
+  // currentIndex の最新値を ref で保持（useEffect の依存配列に入れず、ループを中断させないため）
+  const currentIndexRef = useRef(currentIndex);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
+  // 背景でのプリフェッチ（ギャラリーを開く前にキャッシュを先回りして作成）
+  useEffect(() => {
+    if (videos.length === 0) return;
+
+    let isCancelled = false;
+    
+    const prefetch = async () => {
+      // 現在のインデックスから開始し、全動画をキャッシュ
+      for (let i = 0; i < videos.length; i++) {
+        if (isCancelled) break;
+
+        // 最新の currentIndex を ref から取得（動画切り替えがあっても中断しない）
+        const startIndex = currentIndexRef.current;
+        const targetIndex = (startIndex + i) % videos.length;
+        const video = videos[targetIndex];
+
+        if (thumbnailCache.has(video.url)) continue;
+
+        await new Promise<void>((resolve) => {
+          const v = document.createElement('video');
+          // DOMに追加しないとブラウザがメディアイベントを発火しない場合がある
+          v.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;';
+          document.body.appendChild(v);
+
+          v.preload = 'auto';
+          v.muted = true;
+          v.playsInline = true;
+
+          const cleanup = () => {
+            v.onseeked = null;
+            v.onloadedmetadata = null;
+            v.onerror = null;
+            v.src = '';
+            if (v.parentNode) v.parentNode.removeChild(v);
+          };
+
+          v.onloadedmetadata = () => { v.currentTime = 0.1; };
+
+          v.onseeked = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const targetWidth = 300;
+              const scale = targetWidth / v.videoWidth;
+              canvas.width = targetWidth;
+              canvas.height = v.videoHeight * scale;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+                thumbnailCache.set(video.url, canvas.toDataURL('image/jpeg', 0.6));
+              }
+            } catch (e) {
+              console.error('Background prefetch failed:', e);
+            }
+            cleanup();
+            resolve();
+          };
+
+          v.onerror = () => { cleanup(); resolve(); };
+          setTimeout(() => { cleanup(); resolve(); }, 4000);
+
+          // srcはDOM追加後に設定（ブラウザによっては順序が重要）
+          v.src = video.url;
+        });
+
+        await new Promise(r => setTimeout(r, 100));
+      }
+      console.log(`[Prefetch] Done. ${thumbnailCache.size}/${videos.length} cached.`);
+    };
+
+    const timer = setTimeout(prefetch, 1000);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [videos]); // currentIndex を除外：切り替えでループを中断させない
 
   const goToNext = () => {
     setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
