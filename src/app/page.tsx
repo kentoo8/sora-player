@@ -170,15 +170,23 @@ export default function Home() {
   const [showThumbnailGrid, setShowThumbnailGrid] = useState(false);
   const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearchQuery, setActiveSearchQuery] = useState(''); // 実際にフィルタリングに使うクエリ
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
+  useEffect(() => {
+    if (!isComposing) {
+      setActiveSearchQuery(searchQuery);
+    }
+  }, [searchQuery, isComposing]);
+
   // 検索条件に一致する動画をフィルタリング
   const filteredVideos = videos.filter(v => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    if (!activeSearchQuery) return true;
+    const query = activeSearchQuery.toLowerCase();
     return (
       (v.prompt?.toLowerCase().includes(query)) ||
       (v.account?.toLowerCase().includes(query)) ||
@@ -900,16 +908,13 @@ export default function Home() {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search prompts or accounts..."
-                  defaultValue={searchQuery}
+                  value={searchQuery}
                   onCompositionStart={() => setIsComposing(true)}
-                  onCompositionEnd={(e) => {
+                  onCompositionEnd={() => {
                     setIsComposing(false);
-                    setSearchQuery(e.currentTarget.value);
                   }}
                   onChange={(e) => {
-                    if (!isComposing) {
-                      setSearchQuery(e.target.value);
-                    }
+                    setSearchQuery(e.target.value);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !isComposing) {
