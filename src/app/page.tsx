@@ -282,23 +282,28 @@ export default function Home() {
         {renderVideos.map((video) => {
           const isActive = video.id === currentVideo.id;
           return (
-            <video
+            <div
               key={video.id}
-              ref={el => { videoRefs.current[video.id] = el; }}
-              src={video.url}
-              className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-0 ${
-                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              className={`absolute inset-0 bg-black transition-opacity duration-0 ${
+                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
               }`}
-              loop
-              muted={isMuted}
-              onVolumeChange={(e) => {
-                if (!isActive) return;
-                const target = e.target as HTMLVideoElement;
-                setIsMuted(target.muted);
-              }}
-              playsInline
-              preload="auto"
-            />
+            >
+              <video
+                ref={el => { videoRefs.current[video.id] = el; }}
+                src={video.url}
+                className="h-full w-full object-contain"
+                loop
+                muted={!isActive || isMuted}
+                onVolumeChange={(e) => {
+                  if (!isActive) return;
+                  const target = e.target as HTMLVideoElement;
+                  setIsMuted(target.muted);
+                }}
+                playsInline
+                preload="auto"
+                autoPlay={isActive}
+              />
+            </div>
           );
         })}
 
