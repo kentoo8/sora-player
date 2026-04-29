@@ -1,6 +1,6 @@
 # Hio1345 Sora Player
 
-<img src="assets/preview.png" width="450" />
+<img src="assets/preview.webp" width="450" />
 
 
 Sora2のエクスポートファイルをローカルで閲覧するための動画プレイヤー。
