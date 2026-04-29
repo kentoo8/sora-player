@@ -252,22 +252,25 @@ export async function PUT(request: Request) {
     const fullPath = path.resolve(videosDir, relativePath);
     const dirPath = path.dirname(fullPath);
 
-    if (fs.existsSync(dirPath)) {
+    if (fs.existsSync(fullPath)) {
       const { exec } = require('child_process');
       let command = '';
       
       if (process.platform === 'darwin') {
-        command = `open "${dirPath}"`;
+        // Mac: -R オプションでファイルを選択状態にする
+        command = `open -R "${fullPath}"`;
       } else if (process.platform === 'win32') {
-        command = `explorer "${dirPath}"`;
+        // Windows: /select オプションでファイルを選択状態にする
+        command = `explorer /select,"${fullPath}"`;
       } else {
+        // Linux 等 (親フォルダを開く)
         command = `xdg-open "${dirPath}"`;
       }
 
       exec(command);
       return NextResponse.json({ success: true });
     } else {
-      return NextResponse.json({ error: 'DIR_NOT_FOUND', path: dirPath }, { status: 404 });
+      return NextResponse.json({ error: 'FILE_NOT_FOUND', path: fullPath }, { status: 404 });
     }
   } catch (err: any) {
     return NextResponse.json({ error: 'SERVER_ERROR', message: err.message }, { status: 500 });
