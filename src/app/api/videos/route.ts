@@ -135,6 +135,7 @@ export async function GET() {
         if (!isDuplicate) {
           videos.push({
             id,
+            filename: filenameId,
             url,
             timestamp,
             title,

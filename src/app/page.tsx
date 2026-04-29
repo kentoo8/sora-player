@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 
 type Video = {
   id: string;
+  filename: string;
   url: string;
   timestamp: number;
   title: string;
@@ -411,7 +412,9 @@ export default function Home() {
               <span className="opacity-30">|</span>
               <span className="tracking-wide">{date}</span>
               <span className="opacity-30">|</span>
-              <span className="font-mono text-xs opacity-50 truncate max-w-[200px]">{currentVideo.id}</span>
+              <span className="font-mono text-xs opacity-50 truncate max-w-[200px]">
+                {currentVideo.filename || currentVideo.url.split('/').pop()?.replace(/\.mp4$/i, '') || currentVideo.id}
+              </span>
             </div>
             <div className="mt-6 flex items-center gap-3">
               {/* 操作ガイドは左上に移動したため削除 */}
