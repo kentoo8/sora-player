@@ -48,16 +48,6 @@ export default function Home() {
     setCurrentIndex(prev => Math.max(prev - 1, 0));
   };
 
-  const jumpToEdge = () => {
-    if (currentIndex === 0) {
-      // 一番下（最古）へジャンプ
-      setCurrentIndex(videos.length - 1);
-    } else {
-      // 一番上（最新）へジャンプ
-      setCurrentIndex(0);
-    }
-  };
-
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -127,9 +117,10 @@ export default function Home() {
   }, [currentIndex, videos]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const threshold = 200; // 上下 200px を反応範囲にする
-    const isNearEdge = e.clientY < threshold || e.clientY > window.innerHeight - threshold;
-    setShowControls(isNearEdge);
+    const threshold = 200; // 反応範囲 (px)
+    const isNearBottom = e.clientY > window.innerHeight - threshold;
+    const isNearLeft = e.clientX < threshold;
+    setShowControls(isNearBottom || isNearLeft);
   };
 
   const handleMouseLeave = () => {
@@ -272,36 +263,68 @@ export default function Home() {
         })}
 
         {/* Top UI Container */}
-        <div className={`absolute top-8 right-8 flex items-center z-30 transition-opacity duration-300 ${
+        <div className={`absolute top-12 left-8 z-30 transition-opacity duration-300 ${
           showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}>
-          <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
-            {/* Jump Button */}
+          <div className="px-2 py-6 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-full flex flex-col items-center gap-2 min-w-[54px] shadow-2xl">
+            {/* Jump to Newest */}
             <button 
-              onClick={jumpToEdge}
-              className="text-[10px] text-white/80 font-bold tracking-widest uppercase hover:text-white transition-colors cursor-pointer"
+              onClick={() => setCurrentIndex(0)}
+              disabled={currentIndex === 0}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="Jump to Newest"
             >
-              {currentIndex < videos.length - 1 ? 'To Oldest' : 'To Newest'}
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 4h14M12 20V8M7 13l5-5 5 5" />
+              </svg>
             </button>
             
-            {/* Divider */}
-            <div className="w-[1px] h-3 bg-white/10" />
-
-            {/* Navigation Guide */}
-            <span className="text-[9px] text-white/70 tracking-[0.2em] uppercase font-medium">
-              ↑↓ OR SWIPE
-            </span>
-            
-            {/* Divider */}
-            <div className="w-[1px] h-3 bg-white/10" />
+            {/* Go Previous */}
+            <button 
+              onClick={goToPrev}
+              disabled={currentIndex === 0}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mt-1"
+              title="Previous"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m18 15-6-6-6 6" />
+              </svg>
+            </button>
 
             {/* Counter */}
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse" />
-              <span className="text-[11px] text-white/80 font-mono tracking-wider">
-                {currentIndex + 1} <span className="opacity-40">/</span> {videos.length}
+            <div className="flex flex-col items-center gap-1 my-2">
+              <span className="text-[14px] text-white font-mono font-bold leading-none tracking-tighter">
+                {String(currentIndex + 1).padStart(2, '0')}
+              </span>
+              <div className="w-4 h-[1px] bg-white/20" />
+              <span className="text-[10px] text-white/30 font-mono">
+                {String(videos.length).padStart(2, '0')}
               </span>
             </div>
+
+            {/* Go Next */}
+            <button 
+              onClick={goToNext}
+              disabled={currentIndex === videos.length - 1}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mb-1"
+              title="Next"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {/* Jump to Oldest */}
+            <button 
+              onClick={() => setCurrentIndex(videos.length - 1)}
+              disabled={currentIndex === videos.length - 1}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="Jump to Oldest"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 20h14M12 4v12M7 11l5 5 5-5" />
+              </svg>
+            </button>
           </div>
         </div>
 
