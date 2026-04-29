@@ -741,9 +741,26 @@ export default function Home() {
               <span className="opacity-30">|</span>
               <span className="tracking-wide">{date}</span>
               <span className="opacity-30">|</span>
-              <span className="font-mono text-xs opacity-50 truncate max-w-[200px]">
-                {currentVideo.filename || currentVideo.url.split('/').pop()?.replace(/\.mp4$/i, '') || currentVideo.id}
-              </span>
+              <button
+                onClick={() => {
+                  fetch('/api/videos', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currentVideo.id })
+                  }).catch(err => console.error('Failed to open folder:', err));
+                }}
+                className="group/file flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer pointer-events-auto"
+                title="Finderでフォルダを開く"
+              >
+                <span className="font-mono text-xs opacity-50 group-hover/file:opacity-100 truncate max-w-[240px]">
+                  {currentVideo.filename || currentVideo.url.split('/').pop()?.replace(/\.mp4$/i, '') || currentVideo.id}
+                </span>
+                <svg className="w-3 h-3 opacity-0 group-hover/file:opacity-50 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </button>
             </div>
             <div className="mt-6 flex items-center gap-3">
               {/* 操作ガイドは左上に移動したため削除 */}

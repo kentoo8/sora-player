@@ -46,7 +46,7 @@ export async function GET() {
     } else {
       return NextResponse.json({ 
         error: 'DIRECTORY_NOT_CONFIGURED',
-        message: '動画フォルダが見つかりません。プロジェクト直下の "videos" フォルダを作成するか、config.json でパスを指定してください。'
+        message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成するか、config.json の "videosDir" で正しいパスを指定してください。'
       }, { status: 404 });
     }
   }
@@ -222,5 +222,54 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('Thumbnail Save Error:', err);
     return NextResponse.json({ error: 'SAVE_FAILED', message: err.message }, { status: 500 });
+  }
+}
+
+// フォルダをFinderで開くための PUT ハンドラ
+export async function PUT(request: Request) {
+  try {
+    const { id } = await request.json();
+    if (!id) return NextResponse.json({ error: 'MISSING_ID' }, { status: 400 });
+
+    const configPath = path.join(process.cwd(), 'config.json');
+    let config: any = {};
+    if (fs.existsSync(configPath)) {
+      try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) {}
+    }
+
+    let videosDir = config.videosDir || process.env.VIDEOS_DIR;
+    const defaultDir = path.join(process.cwd(), 'videos');
+
+    // 相対パスの場合は絶対パスに変換
+    if (videosDir && !path.isAbsolute(videosDir)) {
+      videosDir = path.resolve(process.cwd(), videosDir);
+    }
+
+    if (!videosDir || !fs.existsSync(videosDir)) videosDir = defaultDir;
+
+    // IDから相対パスを復元 (@@ をパス区切り文字に戻す)
+    const relativePath = id.split('@@').join(path.sep) + '.mp4';
+    const fullPath = path.resolve(videosDir, relativePath);
+    const dirPath = path.dirname(fullPath);
+
+    if (fs.existsSync(dirPath)) {
+      const { exec } = require('child_process');
+      let command = '';
+      
+      if (process.platform === 'darwin') {
+        command = `open "${dirPath}"`;
+      } else if (process.platform === 'win32') {
+        command = `explorer "${dirPath}"`;
+      } else {
+        command = `xdg-open "${dirPath}"`;
+      }
+
+      exec(command);
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json({ error: 'DIR_NOT_FOUND', path: dirPath }, { status: 404 });
+    }
+  } catch (err: any) {
+    return NextResponse.json({ error: 'SERVER_ERROR', message: err.message }, { status: 500 });
   }
 }
