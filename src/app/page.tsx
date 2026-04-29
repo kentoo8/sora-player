@@ -742,14 +742,15 @@ export default function Home() {
               <span className="tracking-wide">{date}</span>
               <span className="opacity-30">|</span>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.currentTarget.blur();
                   fetch('/api/videos', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: currentVideo.id })
                   }).catch(err => console.error('Failed to open folder:', err));
                 }}
-                className="group/file flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer pointer-events-auto"
+                className="group/file flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer pointer-events-auto focus:outline-none"
                 title="Finderでフォルダを開く"
               >
                 <span className="font-mono text-xs opacity-50 group-hover/file:opacity-100 truncate max-w-[240px]">
