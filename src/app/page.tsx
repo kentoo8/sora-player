@@ -12,6 +12,65 @@ type Video = {
   account: string;
 };
 
+// サムネイル個別のコンポーネント（遅延読み込み対応でパフォーマンスを改善）
+function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, index: number, isActive: boolean, onClick: () => void }) {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setShouldLoad(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '400px' });
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+    return () => observer.disconnect();
+  }, []);
+
+  // ギャラリーを開いた瞬間に、現在再生中の動画まで即座にジャンプする
+  useEffect(() => {
+    if (isActive && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  }, []);
+
+  return (
+    <div 
+      ref={ref}
+      onClick={onClick}
+      className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
+        isActive ? 'border-blue-500 scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-transparent hover:border-white/20'
+      }`}
+    >
+      {shouldLoad ? (
+        <video 
+          src={`${video.url}#t=0.1`}
+          className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500"
+          preload="metadata"
+          muted
+          playsInline
+        />
+      ) : (
+        <div className="h-full w-full flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-white/5 border-t-white/20 rounded-full animate-spin" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+        <p className="text-[10px] text-white/40 font-mono mb-1">#{index + 1}</p>
+        <p className="text-xs text-white/90 font-medium line-clamp-2 leading-tight">
+          {video.prompt || video.filename}
+        </p>
+      </div>
+
+    </div>
+  );
+}
+
 export default function Home() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +81,19 @@ export default function Home() {
   const [isEditingIndex, setIsEditingIndex] = useState(false);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+  const [showThumbnailGrid, setShowThumbnailGrid] = useState(false);
+  const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
+
+  // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
+  useEffect(() => {
+    if (showThumbnailGrid) {
+      setRenderGrid(true);
+    } else {
+      const timer = setTimeout(() => setRenderGrid(false), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [showThumbnailGrid]);
+
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const progressRef = useRef<HTMLDivElement | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -79,6 +151,9 @@ export default function Home() {
       // Input要素などにフォーカスがある場合は無視
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
+      // ギャラリー表示中はナビゲーションを無効化
+      if (showThumbnailGrid) return;
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         if (e.metaKey && e.shiftKey) {
@@ -122,6 +197,9 @@ export default function Home() {
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
+      // ギャラリー表示中はホイールによる動画切り替えを無効化
+      if (showThumbnailGrid) return;
+
       const now = Date.now();
       const cooldown = 800; // 連打防止（ミリ秒）
       if (now - lastScrollTime.current < cooldown) return;
@@ -139,7 +217,18 @@ export default function Home() {
 
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [videos.length]); // goToNext/goToPrev が videos.length に依存するため
+  }, [videos.length, showThumbnailGrid]); // goToNext/goToPrev が videos.length に依存するため
+
+  // Escapeキーでギャラリーを閉じる
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showThumbnailGrid) {
+        setShowThumbnailGrid(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [showThumbnailGrid]);
 
   // アクティブな動画のみ再生し、他は一時停止する
   useEffect(() => {
@@ -149,15 +238,24 @@ export default function Home() {
     Object.entries(videoRefs.current).forEach(([id, el]) => {
       if (!el) return;
       if (id === activeId) {
-        el.muted = isMuted;
-        el.play().catch(e => console.log('Autoplay prevented:', e));
+        if (!showThumbnailGrid) {
+          el.muted = isMuted;
+          el.play().catch(e => console.log('Autoplay prevented:', e));
+        } else {
+          // ギャラリー表示中は一時停止のみ行い、ミュート状態を変更しないことで
+          // onVolumeChange による isMuted の誤更新を防ぐ
+          el.pause();
+        }
       } else {
         el.pause();
         el.muted = true;
-        el.currentTime = 0;
+        // アクティブでない動画のみ再生位置をリセット
+        if (id !== activeId) {
+          el.currentTime = 0;
+        }
       }
     });
-  }, [currentIndex, videos, isMuted]);
+  }, [currentIndex, videos, isMuted, showThumbnailGrid]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const threshold = 200; // 反応範囲 (px)
@@ -394,6 +492,22 @@ export default function Home() {
                 <path d="M5 20h14M12 4v12M7 11l5 5 5-5" />
               </svg>
             </button>
+
+            <div className="w-6 h-[1px] bg-white/10 my-1" />
+
+            {/* Thumbnail Grid Toggle */}
+            <button 
+              onClick={() => setShowThumbnailGrid(true)}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="View all thumbnails"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -432,6 +546,50 @@ export default function Home() {
             ref={progressRef}
             className="h-full bg-white/30"
           />
+        </div>
+      </div>
+
+      {/* Thumbnail Grid Overlay */}
+      <div 
+        className={`fixed inset-0 z-50 transition-all duration-150 ease-out ${
+          showThumbnailGrid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-2'
+        }`}
+      >
+        {/* 背景（クリックで閉じる） */}
+        <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => setShowThumbnailGrid(false)} />
+        
+        {/* 追従する閉じるボタン */}
+        <button 
+          onClick={() => setShowThumbnailGrid(false)}
+          className="fixed top-4 right-4 md:top-6 md:right-6 z-[60] w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white transition-all hover:scale-110 active:scale-95 shadow-2xl backdrop-blur-md border border-white/10"
+        >
+          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* スクロール可能なコンテンツエリア */}
+        <div className="absolute inset-0 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-6 md:p-12 pt-24 md:pt-32" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl font-light tracking-widest uppercase text-white/50">Gallery</h2>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+              {renderGrid && videos.map((video, index) => (
+                <ThumbnailItem 
+                  key={video.id}
+                  video={video}
+                  index={index}
+                  isActive={index === currentIndex}
+                  onClick={() => {
+                    setCurrentIndex(index);
+                    setShowThumbnailGrid(false);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </main>
