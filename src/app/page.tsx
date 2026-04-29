@@ -402,9 +402,11 @@ export default function Home() {
           showControls ? 'opacity-100' : 'opacity-0'
         }`}>
           <div className="max-w-2xl">
-            <p className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
-              {currentVideo.prompt || 'No prompt available'}
-            </p>
+            {currentVideo.prompt && (
+              <p className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
+                {currentVideo.prompt}
+              </p>
+            )}
             <div className="flex items-center gap-2 pt-2 border-t border-white/10 text-white/70 text-sm font-medium">
               {currentVideo.account && (
                 <span className="tracking-wide">@{currentVideo.account}</span>
