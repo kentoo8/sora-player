@@ -130,14 +130,18 @@ export async function GET() {
           }
         }
 
-        videos.push({
-          id,
-          url,
-          timestamp,
-          title,
-          prompt,
-          account: accountName
-        });
+        // 重複チェック（既に同じファイル名がリストにある場合は追加しない）
+        const isDuplicate = videos.some(v => v.url.endsWith(entry.name));
+        if (!isDuplicate) {
+          videos.push({
+            id,
+            url,
+            timestamp,
+            title,
+            prompt,
+            account: accountName
+          });
+        }
       }
     }
   }
