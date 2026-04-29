@@ -172,6 +172,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // 検索条件に一致する動画をフィルタリング
@@ -881,13 +882,15 @@ export default function Home() {
           onMouseEnter={() => setShowSearchBar(true)}
           onMouseLeave={() => setShowSearchBar(false)}
         >
-          <div className={`w-full max-w-md px-6 transition-all duration-500 transform pointer-events-auto ${
-            showSearchBar || searchQuery ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          <div className={`w-full max-w-md px-6 pointer-events-auto ${
+            showSearchBar || searchQuery ? 'opacity-100' : 'opacity-0'
           }`}>
             <div className="relative group/search">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-20 group-focus-within/search:opacity-40 transition duration-500" />
-              <div className="relative flex items-center bg-black/40 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-                <div className="pl-5 text-white/30">
+              {/* 発光をさらに控えめに */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-600/20 rounded-2xl blur-md opacity-0 group-focus-within/search:opacity-100 transition duration-500" />
+              
+              <div className="relative flex items-center bg-black/80 backdrop-blur-3xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="pl-5 text-white/20">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <circle cx="11" cy="11" r="8" />
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -897,16 +900,23 @@ export default function Home() {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search prompts or accounts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  defaultValue={searchQuery}
+                  onCompositionStart={() => setIsComposing(true)}
+                  onCompositionEnd={(e) => {
+                    setIsComposing(false);
+                    setSearchQuery(e.currentTarget.value);
+                  }}
+                  onChange={(e) => {
+                    if (!isComposing) {
+                      setSearchQuery(e.target.value);
+                    }
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      // Enterで最初の結果に飛ぶなどの挙動も可能ですが、
-                      // ここではフォーカスを外して結果を確定させるのみ
+                    if (e.key === 'Enter' && !isComposing) {
                       e.currentTarget.blur();
                     }
                   }}
-                  className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/20 focus:outline-none"
+                  className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/10 focus:outline-none"
                 />
                 {searchQuery && (
                   <button 
