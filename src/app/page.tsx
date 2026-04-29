@@ -147,6 +147,7 @@ export default function Home() {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [showThumbnailGrid, setShowThumbnailGrid] = useState(false);
   const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
@@ -302,6 +303,47 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Input要素などにフォーカスがある場合は無視
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      // g: ギャラリーのオンオフ（ギャラリー中でも有効）
+      if (e.key === 'g') {
+        setShowThumbnailGrid(prev => !prev);
+        return;
+      }
+
+      // m: ミュートのオンオフ（ギャラリー中でも有効）
+      if (e.key === 'm') {
+        setIsMuted(prev => !prev);
+        return;
+      }
+
+      // f: フルスクリーン切り替え
+      if (e.key === 'f') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+        return;
+      }
+
+      // r: ランダムジャンプ
+      if (e.key === 'r') {
+        const randomIndex = Math.floor(Math.random() * videos.length);
+        setCurrentIndex(randomIndex);
+        return;
+      }
+
+      // ?: ショートカット一覧表示
+      if (e.key === '?') {
+        setShowShortcuts(prev => !prev);
+        return;
+      }
+
+      // Escape: モーダルを閉じる
+      if (e.key === 'Escape') {
+        setShowShortcuts(false);
+        return;
+      }
 
       // ギャラリー表示中はナビゲーションを無効化
       if (showThumbnailGrid) return;
@@ -570,8 +612,8 @@ export default function Home() {
             <button 
               onClick={() => setCurrentIndex(0)}
               disabled={currentIndex === 0}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="Jump to Newest"
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="Jump to Newest (⌘+Shift+↑)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 4h14M12 20V8M7 13l5-5 5 5" />
@@ -582,8 +624,8 @@ export default function Home() {
             <button 
               onClick={goToPrev}
               disabled={currentIndex === 0}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mt-1"
-              title="Previous"
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mt-1"
+              title="Previous (↑)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m18 15-6-6-6 6" />
@@ -610,7 +652,7 @@ export default function Home() {
                   <span 
                     onClick={startEditing}
                     className="w-full h-full flex items-center justify-center text-[16px] text-white font-mono font-medium tracking-tighter cursor-text hover:text-blue-400 transition-colors"
-                    title="Click to jump to number"
+                    title="Type number & Enter to jump"
                   >
                     {currentIndex + 1}
                   </span>
@@ -626,8 +668,8 @@ export default function Home() {
             <button 
               onClick={goToNext}
               disabled={currentIndex === videos.length - 1}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mb-1"
-              title="Next"
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mb-1"
+              title="Next (↓)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m6 9 6 6 6-6" />
@@ -638,8 +680,8 @@ export default function Home() {
             <button 
               onClick={() => setCurrentIndex(videos.length - 1)}
               disabled={currentIndex === videos.length - 1}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-white disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="Jump to Oldest"
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="Jump to Oldest (⌘+Shift+↓)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 20h14M12 4v12M7 11l5 5 5-5" />
@@ -652,13 +694,31 @@ export default function Home() {
             <button 
               onClick={() => setShowThumbnailGrid(true)}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="View all thumbnails"
+              title="View all thumbnails (G)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" />
                 <rect x="14" y="3" width="7" height="7" />
                 <rect x="14" y="14" width="7" height="7" />
                 <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
+
+            {/* Random Jump */}
+            <button 
+              onClick={() => {
+                const randomIndex = Math.floor(Math.random() * videos.length);
+                setCurrentIndex(randomIndex);
+              }}
+              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              title="Random jump (R)"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 3 21 3 21 8" />
+                <line x1="4" y1="20" x2="21" y2="3" />
+                <polyline points="21 16 21 21 16 21" />
+                <line x1="15" y1="15" x2="21" y2="21" />
+                <line x1="4" y1="4" x2="9" y2="9" />
               </svg>
             </button>
           </div>
@@ -745,6 +805,41 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* キーボードショートカット一覧オーバーレイ */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div
+            className="bg-white/10 border border-white/20 rounded-2xl p-8 w-full max-w-md shadow-2xl backdrop-blur-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-white font-semibold text-lg mb-6 text-center">キーボードショートカット</h2>
+            <div className="space-y-3 text-sm">
+              {[
+                ['↑ / ↓', '前後の動画へ移動'],
+                ['Shift + ↑↓', '10件スキップ'],
+                ['⌘ + ↑↓', '100件スキップ'],
+                ['Space', '再生 / 一時停止'],
+                ['g', 'ギャラリー 開く / 閉じる'],
+                ['r', 'ランダムジャンプ'],
+                ['m', 'ミュート 切り替え'],
+                ['f', 'フルスクリーン 切り替え'],
+                ['Esc', 'ギャラリー / このパネルを閉じる'],
+                ['?', 'このヘルプを表示'],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between gap-4">
+                  <kbd className="px-2.5 py-1 bg-white/10 border border-white/20 rounded-lg text-white font-mono text-xs min-w-[80px] text-center">{key}</kbd>
+                  <span className="text-white/70 text-right">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-white/30 text-xs text-center mt-6">どこかをクリックまたは Esc で閉じる</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
