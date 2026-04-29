@@ -99,7 +99,7 @@ export async function GET() {
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
         const relativePath = path.relative(absoluteVideosDir, fullPath);
         const url = `/videos/${relativePath.split(path.sep).join('/')}`;
-        const id = relativePath.split(path.sep).join('_').replace(/\.mp4$/i, '');
+        const id = relativePath.split(path.sep).join('@@').replace(/\.mp4$/i, '');
         const filenameId = entry.name.replace(/\.mp4$/i, '');
 
         const thumbFilenameWebp = `${id}.webp`;
@@ -127,8 +127,8 @@ export async function GET() {
           }
         }
 
-        if (timestamp === 0 && id.startsWith('gen_')) {
-          const ulidPart = id.replace('gen_', '');
+        if (timestamp === 0 && filenameId.startsWith('gen_')) {
+          const ulidPart = filenameId.replace('gen_', '');
           if (ulidPart.length === 26) timestamp = decodeTime(ulidPart);
         }
 
