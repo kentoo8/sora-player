@@ -12,12 +12,19 @@ type Video = {
   account: string;
 };
 
-// サムネイル個別のコンポーネント（遅延読み込み対応でパフォーマンスを改善）
+// サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
+const thumbnailCache = new Map<string, string>();
+
+// サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
 function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, index: number, isActive: boolean, onClick: () => void }) {
+  const [cachedUrl, setCachedUrl] = useState<string | undefined>(thumbnailCache.get(video.url));
   const [shouldLoad, setShouldLoad] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    if (cachedUrl) return;
+
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         setShouldLoad(true);
@@ -25,40 +32,74 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
       }
     }, { rootMargin: '400px' });
 
-    if (ref.current) {
-      observer.observe(ref.current);
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
     }
     return () => observer.disconnect();
-  }, []);
+  }, [cachedUrl, video.url]);
+
+  // ビデオのデータが読み込まれたら、Canvasでフレームをキャプチャして静止画として保存する
+  const handleLoadedData = () => {
+    if (cachedUrl || !videoRef.current) return;
+    
+    try {
+      const videoEl = videoRef.current;
+      const canvas = document.createElement('canvas');
+      // 元の動画サイズに合わせてキャプチャ（アスペクト比維持）
+      canvas.width = videoEl.videoWidth / 2; // パフォーマンスのため半分にリサイズ
+      canvas.height = videoEl.videoHeight / 2;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // 圧縮率80%
+        thumbnailCache.set(video.url, dataUrl);
+        setCachedUrl(dataUrl);
+      }
+    } catch (e) {
+      console.error('Failed to capture frame:', e);
+    }
+  };
 
   // ギャラリーを開いた瞬間に、現在再生中の動画まで即座にジャンプする
   useEffect(() => {
-    if (isActive && ref.current) {
-      ref.current.scrollIntoView({ behavior: 'auto', block: 'center' });
+    if (isActive && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
   }, []);
 
   return (
     <div 
-      ref={ref}
+      ref={containerRef}
       onClick={onClick}
       className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
         isActive ? 'border-blue-500 scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-transparent hover:border-white/20'
       }`}
     >
-      {shouldLoad ? (
-        <video 
-          src={`${video.url}#t=0.1`}
+      {cachedUrl ? (
+        <img 
+          src={cachedUrl}
+          alt=""
           className="h-full w-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-500"
+        />
+      ) : shouldLoad ? (
+        <video 
+          ref={videoRef}
+          src={`${video.url}#t=0.1`}
+          onLoadedData={handleLoadedData}
+          className="h-full w-full object-cover opacity-0" // キャプチャ前は隠しておく
           preload="metadata"
           muted
           playsInline
         />
-      ) : (
-        <div className="h-full w-full flex items-center justify-center">
+      ) : null}
+
+      {!cachedUrl && shouldLoad && (
+        <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-white/5 border-t-white/20 rounded-full animate-spin" />
         </div>
       )}
+
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
         <p className="text-[10px] text-white/40 font-mono mb-1">#{index + 1}</p>
@@ -66,7 +107,6 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
           {video.prompt || video.filename}
         </p>
       </div>
-
     </div>
   );
 }
