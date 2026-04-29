@@ -169,7 +169,21 @@ export default function Home() {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [showThumbnailGrid, setShowThumbnailGrid] = useState(false);
   const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // 検索条件に一致する動画をフィルタリング
+  const filteredVideos = videos.filter(v => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      (v.prompt?.toLowerCase().includes(query)) ||
+      (v.account?.toLowerCase().includes(query)) ||
+      (v.filename?.toLowerCase().includes(query))
+    );
+  });
 
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
@@ -439,7 +453,11 @@ export default function Home() {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showThumbnailGrid) {
-        setShowThumbnailGrid(false);
+        if (searchQuery) {
+          setSearchQuery('');
+        } else {
+          setShowThumbnailGrid(false);
+        }
       }
     };
     window.addEventListener('keydown', handleEsc);
@@ -825,22 +843,82 @@ export default function Home() {
         <div className="absolute inset-0 overflow-y-auto">
           <div className="max-w-7xl mx-auto p-6 md:p-12 pt-24 md:pt-32" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-10">
-              <h2 className="text-2xl font-light tracking-widest uppercase text-white/50">Gallery</h2>
+              <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-light tracking-widest uppercase text-white/50">Gallery</h2>
+                {searchQuery && (
+                  <p className="text-xs text-blue-400 font-mono">
+                    Showing {filteredVideos.length} of {videos.length} results for "{searchQuery}"
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
-              {renderGrid && videos.map((video, index) => (
-                <ThumbnailItem 
-                  key={video.id}
-                  video={video}
-                  index={index}
-                  isActive={index === currentIndex}
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    setShowThumbnailGrid(false);
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 pb-40">
+              {renderGrid && filteredVideos.map((video, index) => {
+                // 元の配列でのインデックスを探す（動画切り替え用）
+                const originalIndex = videos.findIndex(v => v.id === video.id);
+                return (
+                  <ThumbnailItem 
+                    key={video.id}
+                    video={video}
+                    index={originalIndex}
+                    isActive={originalIndex === currentIndex}
+                    onClick={() => {
+                      setCurrentIndex(originalIndex);
+                      setShowThumbnailGrid(false);
+                      setSearchQuery(''); // 検索をリセット
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 検索バーコンテナ (下部ホバーで表示) */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-32 z-[70] flex items-end justify-center pb-10 pointer-events-none"
+          onMouseEnter={() => setShowSearchBar(true)}
+          onMouseLeave={() => setShowSearchBar(false)}
+        >
+          <div className={`w-full max-w-md px-6 transition-all duration-500 transform pointer-events-auto ${
+            showSearchBar || searchQuery ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          }`}>
+            <div className="relative group/search">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-20 group-focus-within/search:opacity-40 transition duration-500" />
+              <div className="relative flex items-center bg-black/40 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="pl-5 text-white/30">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search prompts or accounts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      // Enterで最初の結果に飛ぶなどの挙動も可能ですが、
+                      // ここではフォーカスを外して結果を確定させるのみ
+                      e.currentTarget.blur();
+                    }
                   }}
+                  className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/20 focus:outline-none"
                 />
-              ))}
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="pr-5 text-white/30 hover:text-white transition-colors"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
