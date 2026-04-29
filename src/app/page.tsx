@@ -48,6 +48,16 @@ export default function Home() {
     setCurrentIndex(prev => Math.max(prev - 1, 0));
   };
 
+  const jumpToEdge = () => {
+    if (currentIndex === 0) {
+      // 一番下（最古）へジャンプ
+      setCurrentIndex(videos.length - 1);
+    } else {
+      // 一番上（最新）へジャンプ
+      setCurrentIndex(0);
+    }
+  };
+
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -262,10 +272,21 @@ export default function Home() {
         })}
 
         {/* Top UI Container */}
-        <div className={`absolute top-8 right-8 flex items-center z-30 pointer-events-none transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
+        <div className={`absolute top-8 right-8 flex items-center z-30 transition-opacity duration-300 ${
+          showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}>
           <div className="px-4 py-1.5 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center gap-4">
+            {/* Jump Button */}
+            <button 
+              onClick={jumpToEdge}
+              className="text-[10px] text-white/80 font-bold tracking-widest uppercase hover:text-white transition-colors cursor-pointer"
+            >
+              {currentIndex < videos.length - 1 ? 'To Oldest' : 'To Newest'}
+            </button>
+            
+            {/* Divider */}
+            <div className="w-[1px] h-3 bg-white/10" />
+
             {/* Navigation Guide */}
             <span className="text-[9px] text-white/70 tracking-[0.2em] uppercase font-medium">
               ↑↓ OR SWIPE
