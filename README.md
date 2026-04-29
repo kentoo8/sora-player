@@ -26,6 +26,7 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
      │   └── sora-data-files-export-1/
      └── ...
    ```
+   ※ `config.json.example` を `config.json` としてコピーし編集することで、動画フォルダのパスを変更できます。
 
 ## 起動
 

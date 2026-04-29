@@ -24,13 +24,21 @@ function decodeTime(id: string): number {
 }
 
 export async function GET() {
-  let videosDir = process.env.VIDEOS_DIR;
-  // クォーテーションが含まれている場合は除去
-  if (videosDir) {
-    videosDir = videosDir.replace(/^["'](.+)["']$/, '$1');
+  const configPath = path.join(process.cwd(), 'config.json');
+  let config: any = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {}
   }
 
+  let videosDir = config.videosDir || process.env.VIDEOS_DIR;
   const defaultDir = path.join(process.cwd(), 'videos');
+
+  // 相対パスの場合は絶対パスに変換
+  if (videosDir && !path.isAbsolute(videosDir)) {
+    videosDir = path.resolve(process.cwd(), videosDir);
+  }
   
   if (!videosDir || !fs.existsSync(videosDir)) {
     if (fs.existsSync(defaultDir)) {
@@ -38,7 +46,7 @@ export async function GET() {
     } else {
       return NextResponse.json({ 
         error: 'DIRECTORY_NOT_CONFIGURED',
-        message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成して動画を入れてください。'
+        message: '動画フォルダが見つかりません。プロジェクト直下の "videos" フォルダを作成するか、config.json でパスを指定してください。'
       }, { status: 404 });
     }
   }
@@ -178,8 +186,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
 
-    let videosDir = process.env.VIDEOS_DIR;
+    const configPath = path.join(process.cwd(), 'config.json');
+    let config: any = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      } catch (e) {}
+    }
+
+    let videosDir = config.videosDir || process.env.VIDEOS_DIR;
     const defaultDir = path.join(process.cwd(), 'videos');
+
+    // 相対パスの場合は絶対パスに変換
+    if (videosDir && !path.isAbsolute(videosDir)) {
+      videosDir = path.resolve(process.cwd(), videosDir);
+    }
+
     if (!videosDir || !fs.existsSync(videosDir)) {
       videosDir = defaultDir;
     }

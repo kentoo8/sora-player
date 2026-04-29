@@ -2,27 +2,43 @@ const express = require('express');
 const next = require('next');
 const path = require('path');
 
-const { loadEnvConfig } = require('@next/env');
-loadEnvConfig(process.cwd());
+const fs = require('fs');
+
+// config.json の読み込み
+let config = {};
+const configPath = path.join(__dirname, 'config.json');
+if (fs.existsSync(configPath)) {
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    console.log('> Loaded configuration from config.json');
+  } catch (e) {
+    console.error('> Error parsing config.json:', e.message);
+  }
+}
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
 
-const port = process.env.PORT || 3000;
+const port = config.port || process.env.PORT || 3000;
 
 app.prepare().then(() => {
   const server = express();
 
-  let videosDir = process.env.VIDEOS_DIR;
+  let videosDir = config.videosDir || process.env.VIDEOS_DIR;
   const defaultDir = path.join(__dirname, 'videos');
 
+  // 相対パスの場合は絶対パスに変換
+  if (videosDir && !path.isAbsolute(videosDir)) {
+    videosDir = path.resolve(__dirname, videosDir);
+  }
+
   if (!videosDir) {
-    if (require('fs').existsSync(defaultDir)) {
+    if (fs.existsSync(defaultDir)) {
       videosDir = defaultDir;
       console.log(`> Using default video directory: ${videosDir}`);
     } else {
-      console.warn('Warning: VIDEOS_DIR environment variable is not set and default "videos" folder not found.');
+      console.warn('Warning: videosDir is not set in config.json and default "videos" folder not found.');
     }
   }
 

@@ -1,0 +1,4 @@
+{
+  "videosDir": "path/to/your/videos",
+  "port": 3000
+}

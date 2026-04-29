@@ -522,7 +522,7 @@ export default function Home() {
             <div className="pt-4 flex flex-col gap-3">
               <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Alternative for power users</p>
               <p className="text-sm">
-                または、<code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">.env</code> ファイルに <code className="text-blue-400">VIDEOS_DIR=/path/to/videos</code> を指定することも可能です。
+                または、<code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">config.json</code> ファイルを作成し、 <code className="text-blue-400">"videosDir": "/path/to/videos"</code> を指定することも可能です。
               </p>
             </div>
           </div>
