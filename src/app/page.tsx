@@ -226,6 +226,7 @@ export default function Home() {
   const [activeTag, setActiveTag] = useState('');
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [tagInput, setTagInput] = useState('');
+  const [pendingTags, setPendingTags] = useState<Set<string>>(new Set());
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
@@ -285,6 +286,28 @@ export default function Home() {
     [videos, selectedVideoIds]
   );
   const selectedVideoCount = selectedVideos.length;
+
+  // 選択中の動画すべてが持つタグ（共通タグ）を算出
+  const selectedVideosCommonTags = useMemo(() => {
+    if (selectedVideos.length === 0) return new Set<string>();
+    const first = new Set(selectedVideos[0].tags || []);
+    for (let i = 1; i < selectedVideos.length; i++) {
+      const tags = new Set(selectedVideos[i].tags || []);
+      for (const tag of first) {
+        if (!tags.has(tag)) first.delete(tag);
+      }
+    }
+    return first;
+  }, [selectedVideos]);
+
+  // 選択中の動画のいずれかが持つタグ（和集合）を算出
+  const selectedVideosAnyTags = useMemo(() => {
+    const all = new Set<string>();
+    for (const video of selectedVideos) {
+      for (const tag of video.tags || []) all.add(tag);
+    }
+    return all;
+  }, [selectedVideos]);
 
   const jumpToPlayableIndex = (targetIndex: number) => {
     const targetVideo = playableVideos[targetIndex];
@@ -396,17 +419,24 @@ export default function Home() {
     setSelectedVideoIds(next);
   };
 
-  const addTagsToSelectedVideos = async () => {
-    const tags = Array.from(new Set(tagInput.split(',').map(tag => tag.trim()).filter(Boolean)));
-    if (selectedVideos.length === 0 || tags.length === 0) return;
+  const saveTagsForSelectedVideos = async () => {
+    if (selectedVideos.length === 0) return;
+
+    const newTags = tagInput.split(',').map(tag => tag.trim()).filter(Boolean);
+    const finalTags = Array.from(new Set([...pendingTags, ...newTags]));
+
+    if (finalTags.length === 0 && selectedVideoCount > 1) return;
+
+    // 1件選択: PUTで上書き（トグル式編集）、複数選択: POSTで追加のみ
+    const method = selectedVideoCount === 1 ? 'PUT' : 'POST';
+    const body = selectedVideoCount === 1
+      ? { filenames: selectedVideos.map(v => v.filename), tags: finalTags }
+      : { filenames: selectedVideos.map(v => v.filename), tags: finalTags };
 
     const res = await fetch('/api/tags', {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filenames: selectedVideos.map(video => video.filename),
-        tags
-      })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to save tags');
@@ -417,6 +447,7 @@ export default function Home() {
       tags: savedTags[video.filename] || video.tags || []
     })));
     setTagInput('');
+    setPendingTags(new Set());
     setSelectedVideoIds(new Set());
   };
 
@@ -447,6 +478,15 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, [showThumbnailGrid]);
+
+  // 選択動画が変わったらpendingTagsを共通タグで初期化
+  useEffect(() => {
+    if (selectedVideoIds.size > 0) {
+      setPendingTags(new Set(selectedVideosCommonTags));
+    } else {
+      setPendingTags(new Set());
+    }
+  }, [selectedVideoIds, selectedVideosCommonTags]);
 
   useEffect(() => {
     if (!showThumbnailGrid) {
@@ -1248,36 +1288,58 @@ export default function Home() {
               }`}>
                 {selectedVideoCount > 0 ? (
                   <>
-                    {tagCounts.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 pb-1 max-h-24 overflow-y-auto scrollbar-hide">
-                        <span className="text-[10px] text-white/30 whitespace-nowrap shrink-0">既存タグ:</span>
-                        {tagCounts.map(([tag]) => {
-                          // 現在の入力に含まれているか判定
-                          const currentTags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
-                          const alreadyInInput = currentTags.includes(tag);
-                          return (
-                            <button
-                              key={tag}
-                              onClick={() => {
-                                if (alreadyInInput) return;
-                                setTagInput(prev => {
-                                  const trimmed = prev.trim();
-                                  if (!trimmed) return tag;
-                                  return trimmed.endsWith(',') ? `${trimmed} ${tag}` : `${trimmed}, ${tag}`;
-                                });
-                              }}
-                              className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
-                                alreadyInInput
-                                  ? 'bg-emerald-400/20 text-emerald-300 cursor-default'
-                                  : 'bg-white/8 text-white/50 hover:bg-white/15 hover:text-white/80'
-                              }`}
-                            >
-                              {tag}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const isSingle = selectedVideoCount === 1;
+                      // 1件: 全既存タグ + pendingTags内の新規タグを表示、複数: 既存タグのみ
+                      const existingTagNames = tagCounts.map(([tag]) => tag);
+                      const allTagNames = isSingle
+                        ? Array.from(new Set([...existingTagNames, ...pendingTags]))
+                        : existingTagNames;
+                      return allTagNames.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-1.5 max-h-24 overflow-y-auto scrollbar-hide">
+                          {allTagNames.map(tag => {
+                            const isOn = pendingTags.has(tag);
+                            const isPartial = !isOn && selectedVideosAnyTags.has(tag);
+                            return (
+                              <button
+                                key={tag}
+                                onClick={() => {
+                                  if (isSingle) {
+                                    // 1件: トグル式
+                                    setPendingTags(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(tag)) {
+                                        next.delete(tag);
+                                      } else {
+                                        next.add(tag);
+                                      }
+                                      return next;
+                                    });
+                                  } else {
+                                    // 複数: 追加のみ
+                                    setPendingTags(prev => {
+                                      if (prev.has(tag)) return prev;
+                                      const next = new Set(prev);
+                                      next.add(tag);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
+                                  isOn
+                                    ? 'bg-emerald-400/25 text-emerald-200 ring-1 ring-emerald-400/40'
+                                    : isPartial
+                                      ? 'bg-amber-400/15 text-amber-200/70 ring-1 ring-amber-400/20 hover:bg-amber-400/25'
+                                      : 'bg-white/8 text-white/40 hover:bg-white/15 hover:text-white/70'
+                                }`}
+                              >
+                                {tag}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center">
                       <div className="ml-3 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
                         {selectedVideoCount}件を選択中
@@ -1294,12 +1356,12 @@ export default function Home() {
                       <input
                         ref={tagInputRef}
                         type="text"
-                        placeholder="追加するタグ（カンマ区切り）"
+                        placeholder={selectedVideoCount === 1 ? '新しいタグを追加（カンマ区切り）' : '追加するタグ（カンマ区切り）'}
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            addTagsToSelectedVideos().catch(err => console.error(err));
+                            saveTagsForSelectedVideos().catch(err => console.error(err));
                           }
                         }}
                         className="min-w-0 flex-1 h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/15 focus:outline-none"
@@ -1317,15 +1379,18 @@ export default function Home() {
                         </svg>
                       </button>
                       <button
-                        onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
-                        disabled={tagInput.trim().length === 0}
+                        onClick={() => saveTagsForSelectedVideos().catch(err => console.error(err))}
+                        disabled={selectedVideoCount > 1 && pendingTags.size === 0 && tagInput.trim().length === 0}
                         className="mr-2 flex h-10 items-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 text-sm font-medium text-emerald-50 transition-colors hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/25"
-                        title="タグ追加"
+                        title={selectedVideoCount === 1 ? 'タグを確定' : 'タグを追加'}
                       >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 5v14M5 12h14" />
+                          {selectedVideoCount === 1
+                            ? <path d="M20 6 9 17l-5-5" />
+                            : <path d="M12 5v14M5 12h14" />
+                          }
                         </svg>
-                        <span className="hidden sm:inline">追加</span>
+                        <span className="hidden sm:inline">{selectedVideoCount === 1 ? '確定' : '追加'}</span>
                       </button>
                     </div>
                   </>

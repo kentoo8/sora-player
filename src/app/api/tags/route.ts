@@ -93,3 +93,36 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// PUT: タグを上書き設定（追加・除去の両方に対応）
+export async function PUT(request: Request) {
+  try {
+    const { filenames, tags } = await request.json();
+    const targetFilenames = Array.isArray(filenames)
+      ? filenames.filter((filename): filename is string => typeof filename === 'string' && filename.trim().length > 0)
+      : [];
+    const nextTags = normalizeTags(tags);
+
+    if (targetFilenames.length === 0) {
+      return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
+    }
+
+    const tagsFile = readTagsFile();
+    for (const filename of targetFilenames) {
+      if (nextTags.length > 0) {
+        tagsFile.videos[filename] = nextTags;
+      } else {
+        delete tagsFile.videos[filename];
+      }
+    }
+
+    writeTagsFile(tagsFile);
+
+    return NextResponse.json({ success: true, tags: tagsFile.videos });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: 'SAVE_FAILED', message: err.message },
+      { status: 500 }
+    );
+  }
+}
