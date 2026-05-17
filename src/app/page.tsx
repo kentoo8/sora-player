@@ -210,7 +210,7 @@ export default function Home() {
   const [isEditingIndex, setIsEditingIndex] = useState(false);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
-  const [showThumbnailGrid, setShowThumbnailGrid] = useState(false);
+  const [showThumbnailGrid, setShowThumbnailGrid] = useState(true);
   const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchQuery, setActiveSearchQuery] = useState(''); // 実際にフィルタリングに使うクエリ
@@ -257,7 +257,10 @@ export default function Home() {
         counts.set(tag, (counts.get(tag) || 0) + 1);
       }
     }
-    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b, 'ja'));
+    return Array.from(counts.entries()).sort(([a, aCount], [b, bCount]) => {
+      if (bCount !== aCount) return bCount - aCount;
+      return a.localeCompare(b, 'ja');
+    });
   }, [videos]);
   const isSearchActive = activeSearchQuery.trim().length > 0 || activeTag.length > 0;
   const hasSearchResults = filteredVideos.length > 0;
