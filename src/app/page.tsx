@@ -815,17 +815,15 @@ export default function Home() {
 
             <div className="w-6 h-[1px] bg-white/10 my-1" />
 
-            {/* Thumbnail Grid Toggle */}
+            {/* Search Gallery Toggle */}
             <button 
               onClick={() => setShowThumbnailGrid(true)}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
-              title="View all thumbnails (G)"
+              title="Search gallery (G)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
             </button>
 
