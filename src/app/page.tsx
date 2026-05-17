@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 
 type Video = {
   id: string;
@@ -16,6 +16,7 @@ type Video = {
 
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
 const thumbnailCache = new Map<string, string>();
+const cameoPattern = /@[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*/g;
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
 function ThumbnailItem({
@@ -467,6 +468,47 @@ export default function Home() {
     setSelectedVideoIds(new Set());
     setTagInput('');
     setShowThumbnailGrid(true);
+  };
+
+  const openSearchGallery = (searchValue: string) => {
+    setSearchQuery(searchValue);
+    setActiveSearchQuery(searchValue);
+    setActiveTag('');
+    setSelectedVideoIds(new Set());
+    setTagInput('');
+    setShowThumbnailGrid(true);
+  };
+
+  const renderPromptText = (prompt: string) => {
+    const parts: (string | ReactNode)[] = [];
+    let lastIndex = 0;
+
+    for (const match of prompt.matchAll(cameoPattern)) {
+      const cameo = match[0];
+      const index = match.index ?? 0;
+
+      if (index > lastIndex) {
+        parts.push(prompt.slice(lastIndex, index));
+      }
+
+      parts.push(
+        <button
+          key={`${cameo}-${index}`}
+          onClick={() => openSearchGallery(cameo)}
+          className="pointer-events-auto rounded px-1 text-blue-200 transition-colors hover:bg-blue-500/20 hover:text-blue-100 focus:outline-none focus-visible:bg-blue-500/25"
+          title={`"${cameo}" の検索結果を表示`}
+        >
+          {cameo}
+        </button>
+      );
+      lastIndex = index + cameo.length;
+    }
+
+    if (lastIndex < prompt.length) {
+      parts.push(prompt.slice(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : prompt;
   };
 
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
@@ -1142,9 +1184,9 @@ export default function Home() {
         }`}>
           <div className="max-w-2xl">
             {currentVideo.prompt && (
-              <p className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
-                {currentVideo.prompt}
-              </p>
+              <div className="text-white text-base font-light leading-relaxed drop-shadow-2xl mb-2 line-clamp-4">
+                {renderPromptText(currentVideo.prompt)}
+              </div>
             )}
             {currentVideo.tags && currentVideo.tags.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-1.5">
