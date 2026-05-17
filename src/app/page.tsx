@@ -199,7 +199,9 @@ export default function Home() {
     [videos, activeSearchQuery]
   );
   const isSearchActive = activeSearchQuery.trim().length > 0;
-  const playableVideos = isSearchActive ? filteredVideos : videos;
+  const hasSearchResults = filteredVideos.length > 0;
+  const isSearchPlaybackActive = isSearchActive && hasSearchResults;
+  const playableVideos = isSearchPlaybackActive ? filteredVideos : videos;
   const currentVideoId = videos[currentIndex]?.id;
   const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
 
@@ -243,6 +245,9 @@ export default function Home() {
       });
       return () => cancelAnimationFrame(frameId);
     } else {
+      searchInputRef.current?.blur();
+      setShowSearchBar(false);
+
       const timer = setTimeout(() => setRenderGrid(false), 150);
       return () => clearTimeout(timer);
     }
@@ -391,7 +396,7 @@ export default function Home() {
   };
 
   const startEditing = () => {
-    const displayIndex = isSearchActive && currentPlayableIndex !== -1
+    const displayIndex = isSearchPlaybackActive && currentPlayableIndex !== -1
       ? currentPlayableIndex + 1
       : currentIndex + 1;
     setEditValue(String(displayIndex));
@@ -656,10 +661,10 @@ export default function Home() {
 
   const currentVideo = videos[currentIndex];
   const date = new Date(currentVideo.timestamp).toLocaleString();
-  const displayIndex = isSearchActive && currentPlayableIndex !== -1
+  const displayIndex = isSearchPlaybackActive && currentPlayableIndex !== -1
     ? currentPlayableIndex
     : currentIndex;
-  const displayTotal = isSearchActive ? playableVideos.length : videos.length;
+  const displayTotal = isSearchPlaybackActive ? playableVideos.length : videos.length;
 
   // シームレスな切り替えのため、現在・前・次の動画を事前にマウントしておく
   const prevVideo = currentPlayableIndex > 0 ? playableVideos[currentPlayableIndex - 1] : null;
