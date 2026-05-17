@@ -1243,59 +1243,91 @@ export default function Home() {
                 selectedVideoCount > 0 ? 'bg-emerald-400/20' : 'bg-blue-400/25'
               }`} />
               
-              <div className={`relative flex items-center bg-black/80 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-2xl ${
+              <div className={`relative flex flex-col bg-black/80 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-2xl ${
                 selectedVideoCount > 0 ? 'border border-white/5' : 'border border-white/12'
               }`}>
                 {selectedVideoCount > 0 ? (
                   <>
-                    <div className="ml-3 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
-                      {selectedVideoCount}件を選択中
+                    {tagCounts.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 pb-1 max-h-24 overflow-y-auto scrollbar-hide">
+                        <span className="text-[10px] text-white/30 whitespace-nowrap shrink-0">既存タグ:</span>
+                        {tagCounts.map(([tag]) => {
+                          // 現在の入力に含まれているか判定
+                          const currentTags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
+                          const alreadyInInput = currentTags.includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              onClick={() => {
+                                if (alreadyInInput) return;
+                                setTagInput(prev => {
+                                  const trimmed = prev.trim();
+                                  if (!trimmed) return tag;
+                                  return trimmed.endsWith(',') ? `${trimmed} ${tag}` : `${trimmed}, ${tag}`;
+                                });
+                              }}
+                              className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
+                                alreadyInInput
+                                  ? 'bg-emerald-400/20 text-emerald-300 cursor-default'
+                                  : 'bg-white/8 text-white/50 hover:bg-white/15 hover:text-white/80'
+                              }`}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="flex items-center">
+                      <div className="ml-3 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
+                        {selectedVideoCount}件を選択中
+                        <button
+                          onClick={() => { setSelectedVideoIds(new Set()); setTagInput(''); }}
+                          className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-white/10 text-emerald-200/60 hover:text-white transition-colors"
+                          title="選択を解除"
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M18 6 6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <input
+                        ref={tagInputRef}
+                        type="text"
+                        placeholder="追加するタグ（カンマ区切り）"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            addTagsToSelectedVideos().catch(err => console.error(err));
+                          }
+                        }}
+                        className="min-w-0 flex-1 h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/15 focus:outline-none"
+                      />
                       <button
-                        onClick={() => { setSelectedVideoIds(new Set()); setTagInput(''); }}
-                        className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-white/10 text-emerald-200/60 hover:text-white transition-colors"
-                        title="選択を解除"
+                        onClick={() => {
+                          setSelectedVideoIds(new Set());
+                          setTagInput('');
+                        }}
+                        className="mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/30 hover:bg-white/10 hover:text-white transition-colors"
+                        title="選択解除"
                       >
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M18 6 6 18M6 6l12 12" />
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                       </button>
+                      <button
+                        onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
+                        disabled={tagInput.trim().length === 0}
+                        className="mr-2 flex h-10 items-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 text-sm font-medium text-emerald-50 transition-colors hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/25"
+                        title="タグ追加"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        <span className="hidden sm:inline">追加</span>
+                      </button>
                     </div>
-                    <input
-                      ref={tagInputRef}
-                      type="text"
-                      placeholder="追加するタグ（カンマ区切り）"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addTagsToSelectedVideos().catch(err => console.error(err));
-                        }
-                      }}
-                      className="min-w-0 flex-1 h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/15 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => {
-                        setSelectedVideoIds(new Set());
-                        setTagInput('');
-                      }}
-                      className="mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/30 hover:bg-white/10 hover:text-white transition-colors"
-                      title="選択解除"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
-                      disabled={tagInput.trim().length === 0}
-                      className="mr-2 flex h-10 items-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 text-sm font-medium text-emerald-50 transition-colors hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/25"
-                      title="タグ追加"
-                    >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      <span className="hidden sm:inline">追加</span>
-                    </button>
                   </>
                 ) : (
                   <>
