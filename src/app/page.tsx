@@ -183,16 +183,21 @@ export default function Home() {
     }
   }, [searchQuery, isComposing]);
 
-  // 検索条件に一致する動画をフィルタリング
-  const filteredVideos = useMemo(() => videos.filter(v => {
-    if (!activeSearchQuery) return true;
-    const query = activeSearchQuery.toLowerCase();
+  const matchesSearchQuery = (video: Video, searchValue: string) => {
+    if (!searchValue.trim()) return true;
+    const query = searchValue.toLowerCase();
     return (
-      (v.prompt?.toLowerCase().includes(query)) ||
-      (v.account?.toLowerCase().includes(query)) ||
-      (v.filename?.toLowerCase().includes(query))
+      (video.prompt?.toLowerCase().includes(query)) ||
+      (video.account?.toLowerCase().includes(query)) ||
+      (video.filename?.toLowerCase().includes(query))
     );
-  }), [videos, activeSearchQuery]);
+  };
+
+  // 検索条件に一致する動画をフィルタリング
+  const filteredVideos = useMemo(
+    () => videos.filter(video => matchesSearchQuery(video, activeSearchQuery)),
+    [videos, activeSearchQuery]
+  );
   const isSearchActive = activeSearchQuery.trim().length > 0;
   const playableVideos = isSearchActive ? filteredVideos : videos;
   const currentVideoId = videos[currentIndex]?.id;
@@ -205,6 +210,26 @@ export default function Home() {
     if (originalIndex !== -1) {
       setCurrentIndex(originalIndex);
     }
+  };
+
+  const playFromSearchInput = (searchValue: string) => {
+    const nextQuery = searchValue.trim();
+    setSearchQuery(searchValue);
+    setActiveSearchQuery(searchValue);
+
+    if (!nextQuery) {
+      setShowThumbnailGrid(false);
+      return;
+    }
+
+    const firstResultIndex = videos.findIndex(video => matchesSearchQuery(video, searchValue));
+    if (firstResultIndex === -1) {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    setCurrentIndex(firstResultIndex);
+    setShowThumbnailGrid(false);
   };
 
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
@@ -963,8 +988,9 @@ export default function Home() {
                     setSearchQuery(e.target.value);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isComposing) {
-                      e.currentTarget.blur();
+                    const isComposingText = isComposing || e.nativeEvent.isComposing;
+                    if (e.key === 'Enter' && !isComposingText) {
+                      playFromSearchInput(e.currentTarget.value);
                     }
                   }}
                   className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/10 focus:outline-none"
