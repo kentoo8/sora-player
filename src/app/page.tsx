@@ -1395,8 +1395,8 @@ export default function Home() {
                     </div>
                   </>
                 ) : (
-                  <>
-                    <div className="pl-5 text-white/35">
+                  <div className="flex items-center w-full">
+                    <div className="pl-5 text-white/35 shrink-0">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1425,14 +1425,14 @@ export default function Home() {
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="pr-5 text-white/30 hover:text-white transition-colors"
+                        className="pr-5 text-white/30 hover:text-white transition-colors shrink-0"
                       >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                       </button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
