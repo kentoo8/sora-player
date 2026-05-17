@@ -24,7 +24,10 @@ function ThumbnailItem({
   isActive,
   isSelected,
   onClick,
-  onToggleSelected
+  onToggleSelected,
+  onSelectionDragStart,
+  onSelectionDragEnter,
+  filteredIndex
 }: {
   video: Video;
   index: number;
@@ -32,6 +35,9 @@ function ThumbnailItem({
   isSelected: boolean;
   onClick: () => void;
   onToggleSelected: () => void;
+  onSelectionDragStart: () => void;
+  onSelectionDragEnter: () => void;
+  filteredIndex: number;
 }) {
   const [cachedUrl, setCachedUrl] = useState<string | undefined>(video.thumbnail || thumbnailCache.get(video.url));
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -107,6 +113,7 @@ function ThumbnailItem({
     <div 
       ref={containerRef}
       onClick={onClick}
+      onPointerEnter={onSelectionDragEnter}
       className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
         isSelected
           ? 'border-emerald-400 scale-[1.02] shadow-[0_0_20px_rgba(52,211,153,0.3)]'
@@ -114,9 +121,10 @@ function ThumbnailItem({
       }`}
     >
       <button
-        onClick={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
-          onToggleSelected();
+          e.preventDefault();
+          onSelectionDragStart();
         }}
         className={`absolute left-2 top-2 z-20 h-7 w-7 rounded-full border flex items-center justify-center backdrop-blur-md transition-all ${
           isSelected
@@ -222,6 +230,9 @@ export default function Home() {
   const [isComposing, setIsComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const isSelectionDraggingRef = useRef(false);
+  const selectionDragAnchorRef = useRef<number>(-1);
+  const selectionDragBaseIdsRef = useRef<Set<string>>(new Set());
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -337,6 +348,51 @@ export default function Home() {
     });
   };
 
+  const startSelectionDrag = (filteredIdx: number) => {
+    isSelectionDraggingRef.current = true;
+    selectionDragAnchorRef.current = filteredIdx;
+    selectionDragBaseIdsRef.current = new Set(selectedVideoIds);
+    // 起点の動画をトグル
+    const videoId = filteredVideos[filteredIdx]?.id;
+    if (videoId) {
+      setSelectedVideoIds(prev => {
+        const next = new Set(prev);
+        if (next.has(videoId)) {
+          next.delete(videoId);
+        } else {
+          next.add(videoId);
+        }
+        return next;
+      });
+    }
+  };
+
+  const selectVideoDuringDrag = (filteredIdx: number) => {
+    if (!isSelectionDraggingRef.current) return;
+    const anchor = selectionDragAnchorRef.current;
+    if (anchor === -1) return;
+
+    const start = Math.min(anchor, filteredIdx);
+    const end = Math.max(anchor, filteredIdx);
+
+    // ドラッグ開始時に起点が選択されていたか（= トグルで解除された → ドラッグは解除方向）
+    const anchorVideo = filteredVideos[anchor];
+    const wasSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : false;
+
+    // ベースの選択状態をコピーし、範囲内を追加 or 除外
+    const next = new Set(selectionDragBaseIdsRef.current);
+    for (let i = start; i <= end; i++) {
+      const vid = filteredVideos[i];
+      if (!vid) continue;
+      if (wasSelected) {
+        next.delete(vid.id);
+      } else {
+        next.add(vid.id);
+      }
+    }
+    setSelectedVideoIds(next);
+  };
+
   const addTagsToSelectedVideos = async () => {
     const tags = Array.from(new Set(tagInput.split(',').map(tag => tag.trim()).filter(Boolean)));
     if (selectedVideos.length === 0 || tags.length === 0) return;
@@ -403,6 +459,19 @@ export default function Home() {
     });
     return () => cancelAnimationFrame(frameId);
   }, [showThumbnailGrid, selectedVideoCount]);
+
+  useEffect(() => {
+    const stopSelectionDrag = () => {
+      isSelectionDraggingRef.current = false;
+    };
+
+    window.addEventListener('pointerup', stopSelectionDrag);
+    window.addEventListener('pointercancel', stopSelectionDrag);
+    return () => {
+      window.removeEventListener('pointerup', stopSelectionDrag);
+      window.removeEventListener('pointercancel', stopSelectionDrag);
+    };
+  }, []);
 
   // 検索中は検索結果だけを再生対象にする。現在の動画が結果外なら先頭の結果へ移動する。
   useEffect(() => {
@@ -1139,9 +1208,12 @@ export default function Home() {
                     key={video.id}
                     video={video}
                     index={originalIndex}
+                    filteredIndex={index}
                     isActive={originalIndex === currentIndex}
                     isSelected={selectedVideoIds.has(video.id)}
                     onToggleSelected={() => toggleSelectedVideo(video.id)}
+                    onSelectionDragStart={() => startSelectionDrag(index)}
+                    onSelectionDragEnter={() => selectVideoDuringDrag(index)}
                     onClick={() => {
                       setCurrentIndex(originalIndex);
                       setShowThumbnailGrid(false);
