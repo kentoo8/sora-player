@@ -1137,6 +1137,15 @@ export default function Home() {
                 {currentVideo.prompt}
               </p>
             )}
+            {currentVideo.tags && currentVideo.tags.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {currentVideo.tags.map(tag => (
+                  <span key={tag} className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/75 backdrop-blur-md border border-white/10">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-2 pt-2 border-t border-white/10 text-white/70 text-sm font-medium">
               {currentVideo.account && (
                 <span className="tracking-wide">@{currentVideo.account}</span>
