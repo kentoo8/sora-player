@@ -1558,7 +1558,9 @@ export default function Home() {
                       onKeyDown={(e) => {
                         const isComposingText = isComposing || e.nativeEvent.isComposing;
                         if (e.key === 'Enter' && !isComposingText) {
-                          playFromSearchInput(e.currentTarget.value);
+                          e.preventDefault();
+                          setSearchQuery(e.currentTarget.value);
+                          setActiveSearchQuery(e.currentTarget.value);
                         }
                       }}
                       className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/25 focus:outline-none"
