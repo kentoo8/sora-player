@@ -416,10 +416,15 @@ export default function Home() {
       // Input要素などにフォーカスがある場合は無視
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
 
-      // /: 検索ギャラリーのオンオフ（ギャラリー中でも有効）
+      // /: 検索ギャラリーを開く。表示中は検索欄へフォーカスを戻す。
       if (e.key === '/') {
         e.preventDefault();
-        setShowThumbnailGrid(prev => !prev);
+        if (showThumbnailGrid) {
+          setShowSearchBar(true);
+          searchInputRef.current?.focus();
+        } else {
+          setShowThumbnailGrid(true);
+        }
         return;
       }
 
@@ -1022,7 +1027,7 @@ export default function Home() {
                 ['Shift + ↑↓', '10件スキップ'],
                 ['⌘ + ↑↓', '100件スキップ'],
                 ['Space', '再生 / 一時停止'],
-                ['/', '検索ギャラリー 開く / 閉じる'],
+                ['/', '検索ギャラリー 開く / フォーカス'],
                 ['r', 'ランダムジャンプ'],
                 ['m', 'ミュート 切り替え'],
                 ['f', 'フルスクリーン 切り替え'],
