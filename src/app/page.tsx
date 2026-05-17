@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 
 type Video = {
   id: string;
@@ -184,7 +184,7 @@ export default function Home() {
   }, [searchQuery, isComposing]);
 
   // 検索条件に一致する動画をフィルタリング
-  const filteredVideos = videos.filter(v => {
+  const filteredVideos = useMemo(() => videos.filter(v => {
     if (!activeSearchQuery) return true;
     const query = activeSearchQuery.toLowerCase();
     return (
@@ -192,7 +192,20 @@ export default function Home() {
       (v.account?.toLowerCase().includes(query)) ||
       (v.filename?.toLowerCase().includes(query))
     );
-  });
+  }), [videos, activeSearchQuery]);
+  const isSearchActive = activeSearchQuery.trim().length > 0;
+  const playableVideos = isSearchActive ? filteredVideos : videos;
+  const currentVideoId = videos[currentIndex]?.id;
+  const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
+
+  const jumpToPlayableIndex = (targetIndex: number) => {
+    const targetVideo = playableVideos[targetIndex];
+    if (!targetVideo) return;
+    const originalIndex = videos.findIndex(v => v.id === targetVideo.id);
+    if (originalIndex !== -1) {
+      setCurrentIndex(originalIndex);
+    }
+  };
 
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
@@ -203,6 +216,17 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, [showThumbnailGrid]);
+
+  // 検索中は検索結果だけを再生対象にする。現在の動画が結果外なら先頭の結果へ移動する。
+  useEffect(() => {
+    if (!isSearchActive || filteredVideos.length === 0) return;
+    if (filteredVideos.some(video => video.id === currentVideoId)) return;
+
+    const firstResultIndex = videos.findIndex(video => video.id === filteredVideos[0].id);
+    if (firstResultIndex !== -1) {
+      setCurrentIndex(firstResultIndex);
+    }
+  }, [isSearchActive, filteredVideos, videos, currentVideoId]);
 
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const progressRef = useRef<HTMLDivElement | null>(null);
@@ -316,23 +340,30 @@ export default function Home() {
   }, [videos]); // currentIndex を除外：切り替えでループを中断させない
 
   const goToNext = () => {
-    setCurrentIndex(prev => Math.min(prev + 1, videos.length - 1));
+    if (playableVideos.length === 0) return;
+    const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+    jumpToPlayableIndex(Math.min(baseIndex + 1, playableVideos.length - 1));
   };
   const goToPrev = () => {
-    setCurrentIndex(prev => Math.max(prev - 1, 0));
+    if (playableVideos.length === 0) return;
+    const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+    jumpToPlayableIndex(Math.max(baseIndex - 1, 0));
   };
 
   const handleIndexJump = () => {
     const num = parseInt(editValue, 10);
     if (!isNaN(num)) {
-      const target = Math.max(0, Math.min(num - 1, videos.length - 1));
-      setCurrentIndex(target);
+      const target = Math.max(0, Math.min(num - 1, playableVideos.length - 1));
+      jumpToPlayableIndex(target);
     }
     setIsEditingIndex(false);
   };
 
   const startEditing = () => {
-    setEditValue(String(currentIndex + 1));
+    const displayIndex = isSearchActive && currentPlayableIndex !== -1
+      ? currentPlayableIndex + 1
+      : currentIndex + 1;
+    setEditValue(String(displayIndex));
     setIsEditingIndex(true);
   };
 
@@ -373,8 +404,9 @@ export default function Home() {
 
       // r: ランダムジャンプ
       if (e.key === 'r') {
-        const randomIndex = Math.floor(Math.random() * videos.length);
-        setCurrentIndex(randomIndex);
+        if (playableVideos.length === 0) return;
+        const randomIndex = Math.floor(Math.random() * playableVideos.length);
+        jumpToPlayableIndex(randomIndex);
         return;
       }
 
@@ -396,22 +428,26 @@ export default function Home() {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         if (e.metaKey && e.shiftKey) {
-          setCurrentIndex(videos.length - 1);
+          jumpToPlayableIndex(playableVideos.length - 1);
         } else if (e.metaKey) {
-          setCurrentIndex(prev => Math.min(prev + 100, videos.length - 1));
+          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+          jumpToPlayableIndex(Math.min(baseIndex + 100, playableVideos.length - 1));
         } else if (e.shiftKey) {
-          setCurrentIndex(prev => Math.min(prev + 10, videos.length - 1));
+          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+          jumpToPlayableIndex(Math.min(baseIndex + 10, playableVideos.length - 1));
         } else {
           goToNext();
         }
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (e.metaKey && e.shiftKey) {
-          setCurrentIndex(0);
+          jumpToPlayableIndex(0);
         } else if (e.metaKey) {
-          setCurrentIndex(prev => Math.max(prev - 100, 0));
+          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+          jumpToPlayableIndex(Math.max(baseIndex - 100, 0));
         } else if (e.shiftKey) {
-          setCurrentIndex(prev => Math.max(prev - 10, 0));
+          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+          jumpToPlayableIndex(Math.max(baseIndex - 10, 0));
         } else {
           goToPrev();
         }
@@ -431,7 +467,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videos, currentIndex]);
+  }, [videos, currentIndex, playableVideos, currentPlayableIndex, showThumbnailGrid]);
 
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
   useEffect(() => {
@@ -456,7 +492,7 @@ export default function Home() {
 
     window.addEventListener('wheel', handleWheel, { passive: true });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [videos.length, showThumbnailGrid]); // goToNext/goToPrev が videos.length に依存するため
+  }, [videos.length, showThumbnailGrid, playableVideos, currentPlayableIndex]); // goToNext/goToPrev が再生対象に依存するため
 
   // Escapeキーでギャラリーを閉じる
   useEffect(() => {
@@ -589,10 +625,14 @@ export default function Home() {
 
   const currentVideo = videos[currentIndex];
   const date = new Date(currentVideo.timestamp).toLocaleString();
+  const displayIndex = isSearchActive && currentPlayableIndex !== -1
+    ? currentPlayableIndex
+    : currentIndex;
+  const displayTotal = isSearchActive ? playableVideos.length : videos.length;
 
   // シームレスな切り替えのため、現在・前・次の動画を事前にマウントしておく
-  const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null;
-  const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null;
+  const prevVideo = currentPlayableIndex > 0 ? playableVideos[currentPlayableIndex - 1] : null;
+  const nextVideo = currentPlayableIndex !== -1 && currentPlayableIndex < playableVideos.length - 1 ? playableVideos[currentPlayableIndex + 1] : null;
   const renderVideos = [prevVideo, currentVideo, nextVideo].filter(Boolean) as Video[];
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -659,8 +699,8 @@ export default function Home() {
           <div className="px-2 py-6 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-full flex flex-col items-center gap-2 min-w-[54px] shadow-2xl">
             {/* Jump to Newest */}
             <button 
-              onClick={() => setCurrentIndex(0)}
-              disabled={currentIndex === 0}
+              onClick={() => jumpToPlayableIndex(0)}
+              disabled={displayIndex === 0}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
               title="Jump to Newest (⌘+Shift+↑)"
             >
@@ -672,7 +712,7 @@ export default function Home() {
             {/* Go Previous */}
             <button 
               onClick={goToPrev}
-              disabled={currentIndex === 0}
+              disabled={displayIndex === 0}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mt-1"
               title="Previous (↑)"
             >
@@ -703,20 +743,20 @@ export default function Home() {
                     className="w-full h-full flex items-center justify-center text-[16px] text-white font-mono font-medium tracking-tighter cursor-text hover:text-blue-400 transition-colors"
                     title="Type number & Enter to jump"
                   >
-                    {currentIndex + 1}
+                    {displayIndex + 1}
                   </span>
                 )}
               </div>
               <div className="w-4 h-[1px] bg-white/20" />
               <span className="text-[10px] text-white/20 font-mono font-light text-center">
-                {videos.length}
+                {displayTotal}
               </span>
             </div>
 
             {/* Go Next */}
             <button 
               onClick={goToNext}
-              disabled={currentIndex === videos.length - 1}
+              disabled={displayIndex === displayTotal - 1}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mb-1"
               title="Next (↓)"
             >
@@ -727,8 +767,8 @@ export default function Home() {
 
             {/* Jump to Oldest */}
             <button 
-              onClick={() => setCurrentIndex(videos.length - 1)}
-              disabled={currentIndex === videos.length - 1}
+              onClick={() => jumpToPlayableIndex(playableVideos.length - 1)}
+              disabled={displayIndex === displayTotal - 1}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
               title="Jump to Oldest (⌘+Shift+↓)"
             >
@@ -756,8 +796,9 @@ export default function Home() {
             {/* Random Jump */}
             <button 
               onClick={() => {
-                const randomIndex = Math.floor(Math.random() * videos.length);
-                setCurrentIndex(randomIndex);
+                if (playableVideos.length === 0) return;
+                const randomIndex = Math.floor(Math.random() * playableVideos.length);
+                jumpToPlayableIndex(randomIndex);
               }}
               className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
               title="Random jump (R)"
@@ -875,7 +916,6 @@ export default function Home() {
                     onClick={() => {
                       setCurrentIndex(originalIndex);
                       setShowThumbnailGrid(false);
-                      setSearchQuery(''); // 検索をリセット
                     }}
                   />
                 );
@@ -976,4 +1016,3 @@ export default function Home() {
     </main>
   );
 }
-
