@@ -1457,7 +1457,7 @@ export default function Home() {
                         ? Array.from(new Set([...existingTagNames, ...pendingTags]))
                         : existingTagNames;
                       return allTagNames.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-1.5 max-h-24 overflow-y-auto scrollbar-hide">
+                        <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-1.5 max-h-40 overflow-y-auto scrollbar-hide">
                           {allTagNames.map(tag => {
                             const isOn = pendingTags.has(tag);
                             const isPartial = !isOn && selectedVideosAnyTags.has(tag);
