@@ -1248,8 +1248,17 @@ export default function Home() {
               }`}>
                 {selectedVideoCount > 0 ? (
                   <>
-                    <div className="ml-3 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100/90 whitespace-nowrap">
+                    <div className="ml-3 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
                       {selectedVideoCount}件を選択中
+                      <button
+                        onClick={() => { setSelectedVideoIds(new Set()); setTagInput(''); }}
+                        className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-white/10 text-emerald-200/60 hover:text-white transition-colors"
+                        title="選択を解除"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M18 6 6 18M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                     <input
                       ref={tagInputRef}
