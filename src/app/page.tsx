@@ -121,6 +121,7 @@ function ThumbnailItem({
       }`}
     >
       <button
+        onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -351,8 +352,7 @@ export default function Home() {
   const startSelectionDrag = (filteredIdx: number) => {
     isSelectionDraggingRef.current = true;
     selectionDragAnchorRef.current = filteredIdx;
-    selectionDragBaseIdsRef.current = new Set(selectedVideoIds);
-    // 起点の動画をトグル
+    // 起点の動画をトグルし、トグル後の状態をベースとして保存
     const videoId = filteredVideos[filteredIdx]?.id;
     if (videoId) {
       setSelectedVideoIds(prev => {
@@ -362,8 +362,11 @@ export default function Home() {
         } else {
           next.add(videoId);
         }
+        selectionDragBaseIdsRef.current = new Set(next);
         return next;
       });
+    } else {
+      selectionDragBaseIdsRef.current = new Set(selectedVideoIds);
     }
   };
 
@@ -375,19 +378,19 @@ export default function Home() {
     const start = Math.min(anchor, filteredIdx);
     const end = Math.max(anchor, filteredIdx);
 
-    // ドラッグ開始時に起点が選択されていたか（= トグルで解除された → ドラッグは解除方向）
+    // ベースで起点が選択中なら範囲も選択方向、未選択なら解除方向
     const anchorVideo = filteredVideos[anchor];
-    const wasSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : false;
+    const anchorSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : true;
 
     // ベースの選択状態をコピーし、範囲内を追加 or 除外
     const next = new Set(selectionDragBaseIdsRef.current);
     for (let i = start; i <= end; i++) {
       const vid = filteredVideos[i];
       if (!vid) continue;
-      if (wasSelected) {
-        next.delete(vid.id);
-      } else {
+      if (anchorSelected) {
         next.add(vid.id);
+      } else {
+        next.delete(vid.id);
       }
     }
     setSelectedVideoIds(next);
