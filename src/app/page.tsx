@@ -17,6 +17,7 @@ type Video = {
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
 const thumbnailCache = new Map<string, string>();
 const cameoPattern = /@[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*/g;
+const UNTAGGED_FILTER = '__untagged__';
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
 function ThumbnailItem({
@@ -261,6 +262,7 @@ export default function Home() {
 
   const matchesTag = (video: Video, tag: string) => {
     if (!tag) return true;
+    if (tag === UNTAGGED_FILTER) return !video.tags || video.tags.length === 0;
     return Boolean(video.tags?.includes(tag));
   };
 
@@ -281,6 +283,11 @@ export default function Home() {
       return a.localeCompare(b, 'ja');
     });
   }, [videos]);
+  const untaggedVideoCount = useMemo(
+    () => videos.filter(video => !video.tags || video.tags.length === 0).length,
+    [videos]
+  );
+  const activeTagLabel = activeTag === UNTAGGED_FILTER ? '未分類' : activeTag;
   const isSearchActive = activeSearchQuery.trim().length > 0 || activeTag.length > 0;
   const hasSearchResults = filteredVideos.length > 0;
   const isSearchPlaybackActive = isSearchActive && hasSearchResults;
@@ -1347,14 +1354,14 @@ export default function Home() {
                   <p className="text-xs text-blue-400 font-mono">
                     Showing {filteredVideos.length} of {videos.length}
                     {searchQuery && ` results for "${searchQuery}"`}
-                    {activeTag && ` tagged "${activeTag}"`}
+                    {activeTag && ` tagged "${activeTagLabel}"`}
                   </p>
                 )}
               </div>
             </div>
 
             <div className="mb-8">
-              {tagCounts.length > 0 && (
+              {(tagCounts.length > 0 || untaggedVideoCount > 0) && (
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setActiveTag('')}
@@ -1366,6 +1373,18 @@ export default function Home() {
                   >
                     All <span className="ml-1 text-white/40">{videos.length}</span>
                   </button>
+                  {untaggedVideoCount > 0 && (
+                    <button
+                      onClick={() => setActiveTag(UNTAGGED_FILTER)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                        activeTag === UNTAGGED_FILTER
+                          ? 'border-blue-300/60 bg-blue-500/20 text-blue-100'
+                          : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
+                      }`}
+                    >
+                      未分類 <span className="ml-1 opacity-60">{untaggedVideoCount}</span>
+                    </button>
+                  )}
                   {tagCounts.map(([tag, count]) => (
                     <button
                       key={tag}
