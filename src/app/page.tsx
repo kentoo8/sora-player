@@ -509,9 +509,10 @@ export default function Home() {
     if (!res.ok) throw new Error(data.message || 'Failed to save tags');
 
     const savedTags = data.tags || {};
+    const savedFilenames = new Set(selectedVideos.map(video => video.filename));
     setVideos(prev => prev.map(video => ({
       ...video,
-      tags: savedTags[video.filename] || video.tags || []
+      tags: savedTags[video.filename] || (savedFilenames.has(video.filename) ? [] : video.tags || [])
     })));
     setTagInput('');
     setPendingTags(new Set());
