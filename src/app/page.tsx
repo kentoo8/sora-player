@@ -1120,8 +1120,8 @@ export default function Home() {
         </div>
 
         {/* 検索バーコンテナ (下部ホバーで表示) */}
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-32 z-[70] flex items-end justify-center pb-10 pointer-events-none"
+        <div
+          className="absolute bottom-0 left-0 right-0 h-44 z-[70] flex items-end justify-center pb-10 pointer-events-none"
           onMouseEnter={() => setShowSearchBar(true)}
           onMouseLeave={() => setShowSearchBar(false)}
         >
@@ -1131,10 +1131,12 @@ export default function Home() {
             <div className="relative group/search">
               {/* 発光をさらに控えめに */}
               <div className={`absolute -inset-0.5 rounded-2xl blur-md opacity-0 group-focus-within/search:opacity-100 transition duration-500 ${
-                selectedVideoCount > 0 ? 'bg-emerald-400/20' : 'bg-gradient-to-r from-blue-500/20 to-purple-600/20'
+                selectedVideoCount > 0 ? 'bg-emerald-400/20' : 'bg-blue-400/25'
               }`} />
               
-              <div className="relative flex items-center bg-black/80 backdrop-blur-3xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+              <div className={`relative flex items-center bg-black/80 backdrop-blur-3xl rounded-2xl overflow-hidden shadow-2xl ${
+                selectedVideoCount > 0 ? 'border border-white/5' : 'border border-white/12'
+              }`}>
                 {selectedVideoCount > 0 ? (
                   <>
                     <div className="ml-3 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100/90 whitespace-nowrap">
@@ -1179,7 +1181,7 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <div className="pl-5 text-white/20">
+                    <div className="pl-5 text-white/35">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1203,7 +1205,7 @@ export default function Home() {
                           playFromSearchInput(e.currentTarget.value);
                         }
                       }}
-                      className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/10 focus:outline-none"
+                      className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/25 focus:outline-none"
                     />
                     {searchQuery && (
                       <button
