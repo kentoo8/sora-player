@@ -1502,7 +1502,13 @@ export default function Home() {
                       );
                     })()}
                     <div className="flex items-center">
-                      <div className="ml-3 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
+                      <div className="pl-5 text-emerald-200/45 shrink-0">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" />
+                          <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+                        </svg>
+                      </div>
+                      <div className="ml-4 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
                         {selectedVideoCount}件を選択中
                         <button
                           onClick={() => { setSelectedVideoIds(new Set()); setTagInput(''); }}
