@@ -1061,8 +1061,8 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              <div className="w-4 h-[1px] bg-white/20" />
-              <span className="text-[10px] text-white/20 font-mono font-light text-center">
+              <div className="w-4 h-[1px] bg-white/40" />
+              <span className="text-[10px] text-white/50 font-mono font-light text-center">
                 {displayTotal}
               </span>
             </div>
