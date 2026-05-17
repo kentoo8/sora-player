@@ -1425,13 +1425,23 @@ export default function Home() {
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="pr-5 text-white/30 hover:text-white transition-colors shrink-0"
+                        className="pr-3 text-white/30 hover:text-white transition-colors shrink-0"
+                        title="検索をクリア"
                       >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                           <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                       </button>
                     )}
+                    <button
+                      onClick={() => playFromSearchInput(searchQuery)}
+                      className="mr-2 flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/90 transition-colors hover:bg-white/10 hover:border-white/20 shrink-0"
+                      title="再生"
+                    >
+                      <svg className="h-4 w-4 fill-current ml-0.5" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    </button>
                   </div>
                 )}
               </div>
