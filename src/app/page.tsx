@@ -11,13 +11,28 @@ type Video = {
   prompt: string;
   account?: string;
   thumbnail?: string; // 追記：サーバー保存済みのサムネイルURL
+  tags?: string[];
 };
 
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
 const thumbnailCache = new Map<string, string>();
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
-function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, index: number, isActive: boolean, onClick: () => void }) {
+function ThumbnailItem({
+  video,
+  index,
+  isActive,
+  isSelected,
+  onClick,
+  onToggleSelected
+}: {
+  video: Video;
+  index: number;
+  isActive: boolean;
+  isSelected: boolean;
+  onClick: () => void;
+  onToggleSelected: () => void;
+}) {
   const [cachedUrl, setCachedUrl] = useState<string | undefined>(video.thumbnail || thumbnailCache.get(video.url));
   const [shouldLoad, setShouldLoad] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,9 +108,28 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
       ref={containerRef}
       onClick={onClick}
       className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
-        isActive ? 'border-blue-500 scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-transparent hover:border-white/20'
+        isSelected
+          ? 'border-emerald-400 scale-[1.02] shadow-[0_0_20px_rgba(52,211,153,0.3)]'
+          : isActive ? 'border-blue-500 scale-[1.02] shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'border-transparent hover:border-white/20'
       }`}
     >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleSelected();
+        }}
+        className={`absolute left-2 top-2 z-20 h-7 w-7 rounded-full border flex items-center justify-center backdrop-blur-md transition-all ${
+          isSelected
+            ? 'bg-emerald-400 text-black border-emerald-200 opacity-100'
+            : 'bg-black/50 text-white/40 border-white/20 opacity-0 group-hover:opacity-100 hover:text-white'
+        }`}
+        title="タグ付け対象に選択"
+      >
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </button>
+
       {cachedUrl ? (
         <img 
           src={cachedUrl}
@@ -152,6 +186,15 @@ function ThumbnailItem({ video, index, isActive, onClick }: { video: Video, inde
         <p className="text-xs text-white/90 font-medium line-clamp-2 leading-tight">
           {video.prompt || video.filename}
         </p>
+        {video.tags && video.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {video.tags.slice(0, 3).map(tag => (
+              <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -171,6 +214,9 @@ export default function Home() {
   const [renderGrid, setRenderGrid] = useState(false); // アニメーション終了後にDOMから消すため
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchQuery, setActiveSearchQuery] = useState(''); // 実際にフィルタリングに使うクエリ
+  const [activeTag, setActiveTag] = useState('');
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [tagInput, setTagInput] = useState('');
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
@@ -193,17 +239,30 @@ export default function Home() {
     );
   };
 
+  const matchesTag = (video: Video, tag: string) => {
+    if (!tag) return true;
+    return Boolean(video.tags?.includes(tag));
+  };
+
   // 検索条件に一致する動画をフィルタリング
   const filteredVideos = useMemo(
-    () => videos.filter(video => matchesSearchQuery(video, activeSearchQuery)),
-    [videos, activeSearchQuery]
+    () => videos.filter(video => matchesSearchQuery(video, activeSearchQuery) && matchesTag(video, activeTag)),
+    [videos, activeSearchQuery, activeTag]
   );
-  const isSearchActive = activeSearchQuery.trim().length > 0;
+  const allTags = useMemo(
+    () => Array.from(new Set(videos.flatMap(video => video.tags || []))).sort((a, b) => a.localeCompare(b, 'ja')),
+    [videos]
+  );
+  const isSearchActive = activeSearchQuery.trim().length > 0 || activeTag.length > 0;
   const hasSearchResults = filteredVideos.length > 0;
   const isSearchPlaybackActive = isSearchActive && hasSearchResults;
   const playableVideos = isSearchPlaybackActive ? filteredVideos : videos;
   const currentVideoId = videos[currentIndex]?.id;
   const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
+  const selectedVideos = useMemo(
+    () => videos.filter(video => selectedVideoIds.has(video.id)),
+    [videos, selectedVideoIds]
+  );
 
   const jumpToPlayableIndex = (targetIndex: number) => {
     const targetVideo = playableVideos[targetIndex];
@@ -234,6 +293,42 @@ export default function Home() {
     setShowThumbnailGrid(false);
   };
 
+  const toggleSelectedVideo = (videoId: string) => {
+    setSelectedVideoIds(prev => {
+      const next = new Set(prev);
+      if (next.has(videoId)) {
+        next.delete(videoId);
+      } else {
+        next.add(videoId);
+      }
+      return next;
+    });
+  };
+
+  const addTagsToSelectedVideos = async () => {
+    const tags = Array.from(new Set(tagInput.split(',').map(tag => tag.trim()).filter(Boolean)));
+    if (selectedVideos.length === 0 || tags.length === 0) return;
+
+    const res = await fetch('/api/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filenames: selectedVideos.map(video => video.filename),
+        tags
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to save tags');
+
+    const savedTags = data.tags || {};
+    setVideos(prev => prev.map(video => ({
+      ...video,
+      tags: savedTags[video.filename] || video.tags || []
+    })));
+    setTagInput('');
+    setSelectedVideoIds(new Set());
+  };
+
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
     if (showThumbnailGrid) {
@@ -250,6 +345,12 @@ export default function Home() {
 
       const timer = setTimeout(() => setRenderGrid(false), 150);
       return () => clearTimeout(timer);
+    }
+  }, [showThumbnailGrid]);
+
+  useEffect(() => {
+    if (!showThumbnailGrid) {
+      setSelectedVideoIds(new Set());
     }
   }, [showThumbnailGrid]);
 
@@ -270,14 +371,24 @@ export default function Home() {
   const lastScrollTime = useRef(0);
 
   useEffect(() => {
-    fetch('/api/videos')
-      .then(async res => {
+    Promise.all([
+      fetch('/api/videos').then(async res => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Failed to fetch videos');
         return data;
+      }),
+      fetch('/api/tags').then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to fetch tags');
+        return data;
       })
-      .then(data => {
-        setVideos(data.videos || []);
+    ])
+      .then(([videosData, tagsData]) => {
+        const tagMap = tagsData.videos || {};
+        setVideos((videosData.videos || []).map((video: Video) => ({
+          ...video,
+          tags: tagMap[video.filename] || []
+        })));
         setLoading(false);
       })
       .catch(err => {
@@ -926,11 +1037,68 @@ export default function Home() {
             <div className="flex items-center justify-between mb-10">
               <div className="flex flex-col gap-1">
                 <h2 className="text-2xl font-light tracking-widest uppercase text-white/50">Gallery</h2>
-                {searchQuery && (
+                {(searchQuery || activeTag) && (
                   <p className="text-xs text-blue-400 font-mono">
-                    Showing {filteredVideos.length} of {videos.length} results for "{searchQuery}"
+                    Showing {filteredVideos.length} of {videos.length}
+                    {searchQuery && ` results for "${searchQuery}"`}
+                    {activeTag && ` tagged "${activeTag}"`}
                   </p>
                 )}
+              </div>
+            </div>
+
+            <div className="mb-8 space-y-4">
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setActiveTag('')}
+                    className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                      activeTag === ''
+                        ? 'border-white/40 bg-white/15 text-white'
+                        : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {allTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setActiveTag(tag)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                        activeTag === tag
+                          ? 'border-blue-300/60 bg-blue-500/20 text-blue-100'
+                          : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center">
+                <div className="min-w-[150px] text-xs text-white/45">
+                  {selectedVideos.length > 0 ? `${selectedVideos.length}件を選択中` : 'サムネイル左上で選択'}
+                </div>
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addTagsToSelectedVideos().catch(err => console.error(err));
+                    }
+                  }}
+                  placeholder="追加するタグ（カンマ区切り）"
+                  className="min-h-11 flex-1 rounded-xl border border-white/10 bg-black/40 px-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:outline-none"
+                />
+                <button
+                  onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
+                  disabled={selectedVideos.length === 0 || tagInput.trim().length === 0}
+                  className="min-h-11 rounded-xl bg-white px-4 text-sm font-medium text-black transition-colors hover:bg-white/85 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30"
+                >
+                  タグ追加
+                </button>
               </div>
             </div>
 
@@ -944,6 +1112,8 @@ export default function Home() {
                     video={video}
                     index={originalIndex}
                     isActive={originalIndex === currentIndex}
+                    isSelected={selectedVideoIds.has(video.id)}
+                    onToggleSelected={() => toggleSelectedVideo(video.id)}
                     onClick={() => {
                       setCurrentIndex(originalIndex);
                       setShowThumbnailGrid(false);
