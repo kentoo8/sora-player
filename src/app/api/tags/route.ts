@@ -97,17 +97,36 @@ export async function POST(request: Request) {
 // PUT: タグを上書き設定（追加・除去の両方に対応）
 export async function PUT(request: Request) {
   try {
-    const { filenames, tags } = await request.json();
+    const { filenames, tags, updates } = await request.json();
     const targetFilenames = Array.isArray(filenames)
       ? filenames.filter((filename): filename is string => typeof filename === 'string' && filename.trim().length > 0)
       : [];
     const nextTags = normalizeTags(tags);
+    const targetUpdates = Array.isArray(updates)
+      ? updates
+          .filter((update): update is { filename: string; tags: unknown } => (
+            update &&
+            typeof update === 'object' &&
+            'filename' in update &&
+            typeof update.filename === 'string' &&
+            update.filename.trim().length > 0
+          ))
+          .map(update => ({ filename: update.filename, tags: normalizeTags(update.tags) }))
+      : [];
 
-    if (targetFilenames.length === 0) {
+    if (targetFilenames.length === 0 && targetUpdates.length === 0) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
 
     const tagsFile = readTagsFile();
+    for (const { filename, tags } of targetUpdates) {
+      if (tags.length > 0) {
+        tagsFile.videos[filename] = tags;
+      } else {
+        delete tagsFile.videos[filename];
+      }
+    }
+
     for (const filename of targetFilenames) {
       if (nextTags.length > 0) {
         tagsFile.videos[filename] = nextTags;

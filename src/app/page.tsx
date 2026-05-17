@@ -240,6 +240,7 @@ export default function Home() {
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [tagInput, setTagInput] = useState('');
   const [pendingTags, setPendingTags] = useState<Set<string>>(new Set());
+  const [removedCommonTags, setRemovedCommonTags] = useState<Set<string>>(new Set());
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
@@ -531,18 +532,32 @@ export default function Home() {
     if (selectedVideos.length === 0) return;
 
     const newTags = tagInput.split(',').map(tag => tag.trim()).filter(Boolean);
-    const finalTags = Array.from(new Set([...pendingTags, ...newTags]));
+    const commonTagsToRemove = selectedVideoCount === 1 ? new Set<string>() : removedCommonTags;
+    const tagsToAdd = new Set([
+      ...Array.from(pendingTags).filter(tag => !commonTagsToRemove.has(tag)),
+      ...newTags
+    ]);
+    const finalTags = selectedVideoCount === 1
+      ? Array.from(new Set([...pendingTags, ...newTags]))
+      : [];
 
-    if (finalTags.length === 0 && selectedVideoCount > 1) return;
+    if (tagsToAdd.size === 0 && commonTagsToRemove.size === 0 && selectedVideoCount > 1) return;
 
-    // 1件選択: PUTで上書き（トグル式編集）、複数選択: POSTで追加のみ
-    const method = selectedVideoCount === 1 ? 'PUT' : 'POST';
+    // 1件選択: PUTで上書き、複数選択: 動画ごとの既存タグを保ったまま共通タグの解除とタグ追加を反映
     const body = selectedVideoCount === 1
       ? { filenames: selectedVideos.map(v => v.filename), tags: finalTags }
-      : { filenames: selectedVideos.map(v => v.filename), tags: finalTags };
+      : {
+          updates: selectedVideos.map(video => ({
+            filename: video.filename,
+            tags: Array.from(new Set([
+              ...(video.tags || []).filter(tag => !commonTagsToRemove.has(tag)),
+              ...tagsToAdd
+            ]))
+          }))
+        };
 
     const res = await fetch('/api/tags', {
-      method,
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
@@ -557,6 +572,7 @@ export default function Home() {
     })));
     setTagInput('');
     setPendingTags(new Set());
+    setRemovedCommonTags(new Set());
     setSelectedVideoIds(new Set());
   };
 
@@ -578,6 +594,7 @@ export default function Home() {
     setActiveTag('');
     setSelectedVideoIds(new Set());
     setTagInput('');
+    setRemovedCommonTags(new Set());
     setCurrentIndex(0);
   };
 
@@ -587,6 +604,7 @@ export default function Home() {
     setActiveTag(tag);
     setSelectedVideoIds(new Set());
     setTagInput('');
+    setRemovedCommonTags(new Set());
     setShowThumbnailGrid(true);
   };
 
@@ -596,6 +614,7 @@ export default function Home() {
     setActiveTag('');
     setSelectedVideoIds(new Set());
     setTagInput('');
+    setRemovedCommonTags(new Set());
     setShowThumbnailGrid(true);
   };
 
@@ -654,14 +673,17 @@ export default function Home() {
   useEffect(() => {
     if (selectedVideoIds.size > 0) {
       setPendingTags(new Set(selectedVideosCommonTags));
+      setRemovedCommonTags(new Set());
     } else {
       setPendingTags(new Set());
+      setRemovedCommonTags(new Set());
     }
-  }, [selectedVideoIds, selectedVideosCommonTags]);
+  }, [selectedVideoIds]);
 
   useEffect(() => {
     if (!showThumbnailGrid) {
       setSelectedVideoIds(new Set());
+      setRemovedCommonTags(new Set());
     }
   }, [showThumbnailGrid]);
 
@@ -999,6 +1021,7 @@ export default function Home() {
         if (selectedVideoIds.size > 0) {
           setSelectedVideoIds(new Set());
           setTagInput('');
+          setRemovedCommonTags(new Set());
         } else if (searchQuery) {
           setSearchQuery('');
         } else {
@@ -1545,8 +1568,9 @@ export default function Home() {
                       return visibleTagNames.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-1.5 max-h-40 overflow-y-auto scrollbar-hide">
                           {visibleTagNames.map(tag => {
-                            const isOn = pendingTags.has(tag);
-                            const isPartial = !isOn && selectedVideosAnyTags.has(tag);
+                            const isRemovedCommonTag = selectedVideoCount > 1 && selectedVideosCommonTags.has(tag) && removedCommonTags.has(tag);
+                            const isOn = pendingTags.has(tag) && !isRemovedCommonTag;
+                            const isPartial = !isOn && !isRemovedCommonTag && selectedVideosAnyTags.has(tag);
                             return (
                               <button
                                 key={tag}
@@ -1563,13 +1587,24 @@ export default function Home() {
                                       return next;
                                     });
                                   } else {
-                                    // 複数: 追加のみ
-                                    setPendingTags(prev => {
-                                      if (prev.has(tag)) return prev;
-                                      const next = new Set(prev);
-                                      next.add(tag);
-                                      return next;
-                                    });
+                                    // 複数: 共通タグは解除/再追加、部分一致タグは追加のみ
+                                    if (selectedVideosCommonTags.has(tag)) {
+                                      setRemovedCommonTags(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(tag)) {
+                                          next.delete(tag);
+                                        } else {
+                                          next.add(tag);
+                                        }
+                                        return next;
+                                      });
+                                    } else {
+                                      setPendingTags(prev => {
+                                        const next = new Set(prev);
+                                        next.add(tag);
+                                        return next;
+                                      });
+                                    }
                                   }
                                   clearCurrentTagInputSegment();
                                   tagInputRef.current?.focus();
@@ -1599,7 +1634,11 @@ export default function Home() {
                       <div className="ml-4 flex items-center gap-1 rounded-full bg-emerald-400/10 pl-3 pr-1 py-1 text-xs text-emerald-100/90 whitespace-nowrap">
                         {selectedVideoCount}件を選択中
                         <button
-                          onClick={() => { setSelectedVideoIds(new Set()); setTagInput(''); }}
+                          onClick={() => {
+                            setSelectedVideoIds(new Set());
+                            setTagInput('');
+                            setRemovedCommonTags(new Set());
+                          }}
                           className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-white/10 text-emerald-200/60 hover:text-white transition-colors"
                           title="選択を解除"
                         >
@@ -1627,6 +1666,7 @@ export default function Home() {
                         onClick={() => {
                           setSelectedVideoIds(new Set());
                           setTagInput('');
+                          setRemovedCommonTags(new Set());
                         }}
                         className="mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/30 hover:bg-white/10 hover:text-white transition-colors"
                         title="選択解除"
@@ -1637,9 +1677,9 @@ export default function Home() {
                       </button>
                       <button
                         onClick={() => saveTagsForSelectedVideos().catch(err => console.error(err))}
-                        disabled={selectedVideoCount > 1 && pendingTags.size === 0 && tagInput.trim().length === 0}
+                        disabled={selectedVideoCount > 1 && pendingTags.size === 0 && tagInput.trim().length === 0 && removedCommonTags.size === 0}
                         className="mr-2 flex h-10 items-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 text-sm font-medium text-emerald-50 transition-colors hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/25"
-                        title={selectedVideoCount === 1 ? 'タグを確定' : 'タグを追加'}
+                        title={selectedVideoCount === 1 ? 'タグを確定' : 'タグを更新'}
                       >
                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           {selectedVideoCount === 1
@@ -1647,7 +1687,7 @@ export default function Home() {
                             : <path d="M12 5v14M5 12h14" />
                           }
                         </svg>
-                        <span className="hidden sm:inline">{selectedVideoCount === 1 ? '確定' : '追加'}</span>
+                        <span className="hidden sm:inline">{selectedVideoCount === 1 ? '確定' : '更新'}</span>
                       </button>
                     </div>
                   </>
