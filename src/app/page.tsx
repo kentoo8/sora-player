@@ -36,7 +36,7 @@ function ThumbnailItem({
   isSelected: boolean;
   onClick: () => void;
   onToggleSelected: () => void;
-  onSelectionDragStart: () => void;
+  onSelectionDragStart: (clientX: number, clientY: number) => void;
   onSelectionDragEnter: () => void;
   filteredIndex: number;
 }) {
@@ -113,6 +113,7 @@ function ThumbnailItem({
   return (
     <div 
       ref={containerRef}
+      data-filtered-index={filteredIndex}
       onClick={onClick}
       onPointerEnter={onSelectionDragEnter}
       className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
@@ -126,7 +127,7 @@ function ThumbnailItem({
         onPointerDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          onSelectionDragStart();
+          onSelectionDragStart(e.clientX, e.clientY);
         }}
         className={`absolute left-2 top-2 z-20 h-7 w-7 rounded-full border flex items-center justify-center backdrop-blur-md transition-all ${
           isSelected
@@ -233,7 +234,11 @@ export default function Home() {
   const [isComposing, setIsComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const galleryScrollRef = useRef<HTMLDivElement>(null);
+  const filteredVideosRef = useRef<Video[]>([]);
   const isSelectionDraggingRef = useRef(false);
+  const selectionPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const selectionAutoScrollFrameRef = useRef<number | null>(null);
   const selectionDragAnchorRef = useRef<number>(-1);
   const selectionDragBaseIdsRef = useRef<Set<string>>(new Set());
 
@@ -282,6 +287,11 @@ export default function Home() {
   const playableVideos = isSearchPlaybackActive ? filteredVideos : videos;
   const currentVideoId = videos[currentIndex]?.id;
   const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
+
+  useEffect(() => {
+    filteredVideosRef.current = filteredVideos;
+  }, [filteredVideos]);
+
   const selectedVideos = useMemo(
     () => videos.filter(video => selectedVideoIds.has(video.id)),
     [videos, selectedVideoIds]
@@ -373,9 +383,11 @@ export default function Home() {
     });
   };
 
-  const startSelectionDrag = (filteredIdx: number) => {
+  const startSelectionDrag = (filteredIdx: number, clientX: number, clientY: number) => {
     isSelectionDraggingRef.current = true;
     selectionDragAnchorRef.current = filteredIdx;
+    selectionPointerRef.current = { x: clientX, y: clientY };
+    startSelectionAutoScroll();
     // 起点の動画をトグルし、トグル後の状態をベースとして保存
     const videoId = filteredVideos[filteredIdx]?.id;
     if (videoId) {
@@ -394,22 +406,69 @@ export default function Home() {
     }
   };
 
+  const updateSelectionFromPointer = () => {
+    const pointer = selectionPointerRef.current;
+    if (!pointer) return;
+
+    const hoveredThumbnail = document
+      .elementFromPoint(pointer.x, pointer.y)
+      ?.closest<HTMLElement>('[data-filtered-index]');
+    const filteredIdx = Number(hoveredThumbnail?.dataset.filteredIndex);
+    if (Number.isInteger(filteredIdx)) {
+      selectVideoDuringDrag(filteredIdx);
+    }
+  };
+
+  const startSelectionAutoScroll = () => {
+    if (selectionAutoScrollFrameRef.current !== null) return;
+
+    const tick = () => {
+      selectionAutoScrollFrameRef.current = null;
+      if (!isSelectionDraggingRef.current) return;
+
+      const scrollEl = galleryScrollRef.current;
+      const pointer = selectionPointerRef.current;
+      if (scrollEl && pointer) {
+        const rect = scrollEl.getBoundingClientRect();
+        const edgeSize = 120;
+        const maxScrollStep = 28;
+        let scrollStep = 0;
+
+        if (pointer.y < rect.top + edgeSize) {
+          scrollStep = -Math.ceil((1 - (pointer.y - rect.top) / edgeSize) * maxScrollStep);
+        } else if (pointer.y > rect.bottom - edgeSize) {
+          scrollStep = Math.ceil((1 - (rect.bottom - pointer.y) / edgeSize) * maxScrollStep);
+        }
+
+        if (scrollStep !== 0) {
+          scrollEl.scrollBy({ top: scrollStep });
+          updateSelectionFromPointer();
+        }
+      }
+
+      selectionAutoScrollFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    selectionAutoScrollFrameRef.current = requestAnimationFrame(tick);
+  };
+
   const selectVideoDuringDrag = (filteredIdx: number) => {
     if (!isSelectionDraggingRef.current) return;
     const anchor = selectionDragAnchorRef.current;
     if (anchor === -1) return;
 
+    const dragVideos = filteredVideosRef.current;
     const start = Math.min(anchor, filteredIdx);
     const end = Math.max(anchor, filteredIdx);
 
     // ベースで起点が選択中なら範囲も選択方向、未選択なら解除方向
-    const anchorVideo = filteredVideos[anchor];
+    const anchorVideo = dragVideos[anchor];
     const anchorSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : true;
 
     // ベースの選択状態をコピーし、範囲内を追加 or 除外
     const next = new Set(selectionDragBaseIdsRef.current);
     for (let i = start; i <= end; i++) {
-      const vid = filteredVideos[i];
+      const vid = dragVideos[i];
       if (!vid) continue;
       if (anchorSelected) {
         next.add(vid.id);
@@ -555,15 +614,30 @@ export default function Home() {
   }, [showThumbnailGrid, selectedVideoCount]);
 
   useEffect(() => {
-    const stopSelectionDrag = () => {
-      isSelectionDraggingRef.current = false;
+    const trackSelectionPointer = (event: PointerEvent) => {
+      if (!isSelectionDraggingRef.current) return;
+      selectionPointerRef.current = { x: event.clientX, y: event.clientY };
+      updateSelectionFromPointer();
+      startSelectionAutoScroll();
     };
 
+    const stopSelectionDrag = () => {
+      isSelectionDraggingRef.current = false;
+      selectionPointerRef.current = null;
+      if (selectionAutoScrollFrameRef.current !== null) {
+        cancelAnimationFrame(selectionAutoScrollFrameRef.current);
+        selectionAutoScrollFrameRef.current = null;
+      }
+    };
+
+    window.addEventListener('pointermove', trackSelectionPointer);
     window.addEventListener('pointerup', stopSelectionDrag);
     window.addEventListener('pointercancel', stopSelectionDrag);
     return () => {
+      window.removeEventListener('pointermove', trackSelectionPointer);
       window.removeEventListener('pointerup', stopSelectionDrag);
       window.removeEventListener('pointercancel', stopSelectionDrag);
+      stopSelectionDrag();
     };
   }, []);
 
@@ -1258,7 +1332,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => setShowThumbnailGrid(false)} />
         
         {/* スクロール可能なコンテンツエリア */}
-        <div className="absolute inset-0 overflow-y-auto">
+        <div ref={galleryScrollRef} className="absolute inset-0 overflow-y-auto">
           <div className="max-w-7xl mx-auto p-6 md:p-12 pt-24 md:pt-32" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-10">
               <div className="flex flex-col gap-1">
@@ -1322,7 +1396,7 @@ export default function Home() {
                     isActive={originalIndex === currentIndex}
                     isSelected={selectedVideoIds.has(video.id)}
                     onToggleSelected={() => toggleSelectedVideo(video.id)}
-                    onSelectionDragStart={() => startSelectionDrag(index)}
+                    onSelectionDragStart={(clientX, clientY) => startSelectionDrag(index, clientX, clientY)}
                     onSelectionDragEnter={() => selectVideoDuringDrag(index)}
                     onClick={() => {
                       setCurrentIndex(originalIndex);
