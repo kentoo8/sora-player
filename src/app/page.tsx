@@ -233,6 +233,7 @@ export default function Home() {
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
+  const [isTagComposing, setIsTagComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const galleryScrollRef = useRef<HTMLDivElement>(null);
@@ -517,6 +518,18 @@ export default function Home() {
     setTagInput('');
     setPendingTags(new Set());
     setSelectedVideoIds(new Set());
+  };
+
+  const clearCurrentTagInputSegment = () => {
+    setTagInput(prev => {
+      const remainingTags = prev
+        .split(',')
+        .slice(0, -1)
+        .map(tag => tag.trim())
+        .filter(Boolean);
+
+      return remainingTags.length > 0 ? `${remainingTags.join(', ')}, ` : '';
+    });
   };
 
   const resetGalleryToAll = () => {
@@ -1456,9 +1469,13 @@ export default function Home() {
                       const allTagNames = isSingle
                         ? Array.from(new Set([...existingTagNames, ...pendingTags]))
                         : existingTagNames;
-                      return allTagNames.length > 0 && (
+                      const tagInputQuery = isTagComposing ? '' : tagInput.split(',').pop()?.trim().toLowerCase() || '';
+                      const visibleTagNames = tagInputQuery
+                        ? allTagNames.filter(tag => tag.toLowerCase().includes(tagInputQuery))
+                        : allTagNames;
+                      return visibleTagNames.length > 0 && (
                         <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5 pb-1.5 max-h-40 overflow-y-auto scrollbar-hide">
-                          {allTagNames.map(tag => {
+                          {visibleTagNames.map(tag => {
                             const isOn = pendingTags.has(tag);
                             const isPartial = !isOn && selectedVideosAnyTags.has(tag);
                             return (
@@ -1485,6 +1502,8 @@ export default function Home() {
                                       return next;
                                     });
                                   }
+                                  clearCurrentTagInputSegment();
+                                  tagInputRef.current?.focus();
                                 }}
                                 className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] transition-colors ${
                                   isOn
@@ -1525,9 +1544,11 @@ export default function Home() {
                         type="text"
                         placeholder={selectedVideoCount === 1 ? '新しいタグを追加（カンマ区切り）' : '追加するタグ（カンマ区切り）'}
                         value={tagInput}
+                        onCompositionStart={() => setIsTagComposing(true)}
+                        onCompositionEnd={() => setIsTagComposing(false)}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                          if (e.key === 'Enter' && !isTagComposing && !e.nativeEvent.isComposing) {
                             saveTagsForSelectedVideos().catch(err => console.error(err));
                           }
                         }}
