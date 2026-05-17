@@ -211,6 +211,12 @@ export default function Home() {
   useEffect(() => {
     if (showThumbnailGrid) {
       setRenderGrid(true);
+      setShowSearchBar(true);
+
+      const frameId = requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+      });
+      return () => cancelAnimationFrame(frameId);
     } else {
       const timer = setTimeout(() => setRenderGrid(false), 150);
       return () => clearTimeout(timer);
