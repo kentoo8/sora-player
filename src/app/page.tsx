@@ -1032,7 +1032,7 @@ export default function Home() {
                 ['m', 'ミュート 切り替え'],
                 ['f', 'フルスクリーン 切り替え'],
                 ['Esc', 'ギャラリー / このパネルを閉じる'],
-                ['?', 'このヘルプを表示'],
+                ['?', 'このヘルプを表示 / 非表示'],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between gap-4">
                   <kbd className="px-2.5 py-1 bg-white/10 border border-white/20 rounded-lg text-white font-mono text-xs min-w-[80px] text-center">{key}</kbd>
