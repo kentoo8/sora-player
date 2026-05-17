@@ -1094,7 +1094,7 @@ export default function Home() {
   const prevVideo = currentPlayableIndex > 0 ? playableVideos[currentPlayableIndex - 1] : null;
   const nextVideo = currentPlayableIndex !== -1 && currentPlayableIndex < playableVideos.length - 1 ? playableVideos[currentPlayableIndex + 1] : null;
   const renderVideos = [prevVideo, currentVideo, nextVideo].filter(Boolean) as Video[];
-  const sidePanelButtonClass = "w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:ring-offset-0";
+  const sidePanelButtonClass = "w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:ring-offset-0";
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -1161,7 +1161,6 @@ export default function Home() {
             {/* Jump to Newest */}
             <button 
               onClick={() => jumpToPlayableIndex(0)}
-              disabled={displayIndex === 0}
               className={sidePanelButtonClass}
               title="Jump to Newest (⌘+Shift+↑)"
             >
@@ -1227,7 +1226,6 @@ export default function Home() {
             {/* Jump to Oldest */}
             <button 
               onClick={() => jumpToPlayableIndex(playableVideos.length - 1)}
-              disabled={displayIndex === displayTotal - 1}
               className={sidePanelButtonClass}
               title="Jump to Oldest (⌘+Shift+↓)"
             >
