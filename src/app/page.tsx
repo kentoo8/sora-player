@@ -221,6 +221,7 @@ export default function Home() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -249,10 +250,15 @@ export default function Home() {
     () => videos.filter(video => matchesSearchQuery(video, activeSearchQuery) && matchesTag(video, activeTag)),
     [videos, activeSearchQuery, activeTag]
   );
-  const allTags = useMemo(
-    () => Array.from(new Set(videos.flatMap(video => video.tags || []))).sort((a, b) => a.localeCompare(b, 'ja')),
-    [videos]
-  );
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const video of videos) {
+      for (const tag of video.tags || []) {
+        counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b, 'ja'));
+  }, [videos]);
   const isSearchActive = activeSearchQuery.trim().length > 0 || activeTag.length > 0;
   const hasSearchResults = filteredVideos.length > 0;
   const isSearchPlaybackActive = isSearchActive && hasSearchResults;
@@ -263,6 +269,7 @@ export default function Home() {
     () => videos.filter(video => selectedVideoIds.has(video.id)),
     [videos, selectedVideoIds]
   );
+  const selectedVideoCount = selectedVideos.length;
 
   const jumpToPlayableIndex = (targetIndex: number) => {
     const targetVideo = playableVideos[targetIndex];
@@ -353,6 +360,15 @@ export default function Home() {
       setSelectedVideoIds(new Set());
     }
   }, [showThumbnailGrid]);
+
+  useEffect(() => {
+    if (!showThumbnailGrid || selectedVideoCount === 0) return;
+
+    const frameId = requestAnimationFrame(() => {
+      tagInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [showThumbnailGrid, selectedVideoCount]);
 
   // 検索中は検索結果だけを再生対象にする。現在の動画が結果外なら先頭の結果へ移動する。
   useEffect(() => {
@@ -651,7 +667,10 @@ export default function Home() {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showThumbnailGrid) {
-        if (searchQuery) {
+        if (selectedVideoIds.size > 0) {
+          setSelectedVideoIds(new Set());
+          setTagInput('');
+        } else if (searchQuery) {
           setSearchQuery('');
         } else {
           setShowThumbnailGrid(false);
@@ -660,7 +679,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [showThumbnailGrid]);
+  }, [showThumbnailGrid, searchQuery, selectedVideoIds]);
 
   // アクティブな動画のみ再生し、他は一時停止する
   useEffect(() => {
@@ -1047,8 +1066,8 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mb-8 space-y-4">
-              {allTags.length > 0 && (
+            <div className="mb-8">
+              {tagCounts.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setActiveTag('')}
@@ -1058,9 +1077,9 @@ export default function Home() {
                         : 'border-white/10 bg-white/5 text-white/50 hover:text-white'
                     }`}
                   >
-                    All
+                    All <span className="ml-1 text-white/40">{videos.length}</span>
                   </button>
-                  {allTags.map(tag => (
+                  {tagCounts.map(([tag, count]) => (
                     <button
                       key={tag}
                       onClick={() => setActiveTag(tag)}
@@ -1070,36 +1089,11 @@ export default function Home() {
                           : 'border-white/10 bg-white/5 text-white/60 hover:text-white'
                       }`}
                     >
-                      {tag}
+                      {tag} <span className="ml-1 opacity-60">{count}</span>
                     </button>
                   ))}
                 </div>
               )}
-
-              <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:flex-row md:items-center">
-                <div className="min-w-[150px] text-xs text-white/45">
-                  {selectedVideos.length > 0 ? `${selectedVideos.length}件を選択中` : 'サムネイル左上で選択'}
-                </div>
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      addTagsToSelectedVideos().catch(err => console.error(err));
-                    }
-                  }}
-                  placeholder="追加するタグ（カンマ区切り）"
-                  className="min-h-11 flex-1 rounded-xl border border-white/10 bg-black/40 px-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:outline-none"
-                />
-                <button
-                  onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
-                  disabled={selectedVideos.length === 0 || tagInput.trim().length === 0}
-                  className="min-h-11 rounded-xl bg-white px-4 text-sm font-medium text-black transition-colors hover:bg-white/85 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30"
-                >
-                  タグ追加
-                </button>
-              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6 pb-40">
@@ -1131,49 +1125,97 @@ export default function Home() {
           onMouseEnter={() => setShowSearchBar(true)}
           onMouseLeave={() => setShowSearchBar(false)}
         >
-          <div className={`w-full max-w-md px-6 pointer-events-auto ${
-            showSearchBar || searchQuery ? 'opacity-100' : 'opacity-0'
+          <div className={`w-full px-6 pointer-events-auto transition-all duration-200 ${
+            selectedVideoCount > 0 ? 'max-w-xl opacity-100' : `max-w-md ${showSearchBar || searchQuery ? 'opacity-100' : 'opacity-0'}`
           }`}>
             <div className="relative group/search">
               {/* 発光をさらに控えめに */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-600/20 rounded-2xl blur-md opacity-0 group-focus-within/search:opacity-100 transition duration-500" />
+              <div className={`absolute -inset-0.5 rounded-2xl blur-md opacity-0 group-focus-within/search:opacity-100 transition duration-500 ${
+                selectedVideoCount > 0 ? 'bg-emerald-400/20' : 'bg-gradient-to-r from-blue-500/20 to-purple-600/20'
+              }`} />
               
               <div className="relative flex items-center bg-black/80 backdrop-blur-3xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-                <div className="pl-5 text-white/20">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                </div>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search prompts or accounts..."
-                  value={searchQuery}
-                  onCompositionStart={() => setIsComposing(true)}
-                  onCompositionEnd={() => {
-                    setIsComposing(false);
-                  }}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                  }}
-                  onKeyDown={(e) => {
-                    const isComposingText = isComposing || e.nativeEvent.isComposing;
-                    if (e.key === 'Enter' && !isComposingText) {
-                      playFromSearchInput(e.currentTarget.value);
-                    }
-                  }}
-                  className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/10 focus:outline-none"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    className="pr-5 text-white/30 hover:text-white transition-colors"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
+                {selectedVideoCount > 0 ? (
+                  <>
+                    <div className="ml-3 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100/90 whitespace-nowrap">
+                      {selectedVideoCount}件を選択中
+                    </div>
+                    <input
+                      ref={tagInputRef}
+                      type="text"
+                      placeholder="追加するタグ（カンマ区切り）"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          addTagsToSelectedVideos().catch(err => console.error(err));
+                        }
+                      }}
+                      className="min-w-0 flex-1 h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/15 focus:outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        setSelectedVideoIds(new Set());
+                        setTagInput('');
+                      }}
+                      className="mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/30 hover:bg-white/10 hover:text-white transition-colors"
+                      title="選択解除"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => addTagsToSelectedVideos().catch(err => console.error(err))}
+                      disabled={tagInput.trim().length === 0}
+                      className="mr-2 flex h-10 items-center gap-1.5 rounded-xl border border-emerald-300/20 bg-emerald-400/15 px-3 text-sm font-medium text-emerald-50 transition-colors hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/25"
+                      title="タグ追加"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      <span className="hidden sm:inline">追加</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="pl-5 text-white/20">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </div>
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search prompts or accounts..."
+                      value={searchQuery}
+                      onCompositionStart={() => setIsComposing(true)}
+                      onCompositionEnd={() => {
+                        setIsComposing(false);
+                      }}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        const isComposingText = isComposing || e.nativeEvent.isComposing;
+                        if (e.key === 'Enter' && !isComposingText) {
+                          playFromSearchInput(e.currentTarget.value);
+                        }
+                      }}
+                      className="w-full h-14 bg-transparent border-none px-4 text-white text-sm placeholder:text-white/10 focus:outline-none"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="pr-5 text-white/30 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
