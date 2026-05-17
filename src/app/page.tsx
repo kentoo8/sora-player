@@ -910,16 +910,6 @@ export default function Home() {
         {/* 背景（クリックで閉じる） */}
         <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => setShowThumbnailGrid(false)} />
         
-        {/* 追従する閉じるボタン */}
-        <button 
-          onClick={() => setShowThumbnailGrid(false)}
-          className="fixed top-4 right-4 md:top-6 md:right-6 z-[60] w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white transition-all hover:scale-110 active:scale-95 shadow-2xl backdrop-blur-md border border-white/10"
-        >
-          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
-
         {/* スクロール可能なコンテンツエリア */}
         <div className="absolute inset-0 overflow-y-auto">
           <div className="max-w-7xl mx-auto p-6 md:p-12 pt-24 md:pt-32" onClick={(e) => e.stopPropagation()}>
