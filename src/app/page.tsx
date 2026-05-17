@@ -339,6 +339,15 @@ export default function Home() {
     setSelectedVideoIds(new Set());
   };
 
+  const resetGalleryToAll = () => {
+    setSearchQuery('');
+    setActiveSearchQuery('');
+    setActiveTag('');
+    setSelectedVideoIds(new Set());
+    setTagInput('');
+    setCurrentIndex(0);
+  };
+
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
     if (showThumbnailGrid) {
@@ -1058,7 +1067,13 @@ export default function Home() {
           <div className="max-w-7xl mx-auto p-6 md:p-12 pt-24 md:pt-32" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-10">
               <div className="flex flex-col gap-1">
-                <h2 className="text-2xl font-light tracking-widest uppercase text-white/50">Gallery</h2>
+                <button
+                  onClick={resetGalleryToAll}
+                  className="w-fit text-left text-2xl font-light tracking-widest uppercase text-white/50 transition-colors hover:text-white/80 focus:outline-none focus-visible:text-white/80"
+                  title="All の先頭に戻る"
+                >
+                  Sora2 Player
+                </button>
                 {(searchQuery || activeTag) && (
                   <p className="text-xs text-blue-400 font-mono">
                     Showing {filteredVideos.length} of {videos.length}
