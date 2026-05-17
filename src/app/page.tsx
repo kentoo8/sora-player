@@ -1360,7 +1360,7 @@ export default function Home() {
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                             saveTagsForSelectedVideos().catch(err => console.error(err));
                           }
                         }}
