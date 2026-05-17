@@ -283,6 +283,28 @@ export default function Home() {
     }
   };
 
+  const wrapPlayableIndex = (targetIndex: number) => {
+    if (playableVideos.length === 0) return 0;
+    return ((targetIndex % playableVideos.length) + playableVideos.length) % playableVideos.length;
+  };
+
+  const jumpToWrappedPlayableIndex = (targetIndex: number) => {
+    jumpToPlayableIndex(wrapPlayableIndex(targetIndex));
+  };
+
+  const jumpByPageStep = (delta: number) => {
+    if (playableVideos.length === 0) return;
+    const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
+    const lastIndex = playableVideos.length - 1;
+
+    if (delta > 0) {
+      jumpToPlayableIndex(baseIndex === lastIndex ? 0 : Math.min(baseIndex + delta, lastIndex));
+      return;
+    }
+
+    jumpToPlayableIndex(baseIndex === 0 ? lastIndex : Math.max(baseIndex + delta, 0));
+  };
+
   const playFromSearchInput = (searchValue: string) => {
     const nextQuery = searchValue.trim();
     setSearchQuery(searchValue);
@@ -517,12 +539,12 @@ export default function Home() {
   const goToNext = () => {
     if (playableVideos.length === 0) return;
     const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-    jumpToPlayableIndex(Math.min(baseIndex + 1, playableVideos.length - 1));
+    jumpToWrappedPlayableIndex(baseIndex + 1);
   };
   const goToPrev = () => {
     if (playableVideos.length === 0) return;
     const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-    jumpToPlayableIndex(Math.max(baseIndex - 1, 0));
+    jumpToWrappedPlayableIndex(baseIndex - 1);
   };
 
   const handleIndexJump = () => {
@@ -611,11 +633,9 @@ export default function Home() {
         if (e.metaKey && e.shiftKey) {
           jumpToPlayableIndex(playableVideos.length - 1);
         } else if (e.metaKey) {
-          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-          jumpToPlayableIndex(Math.min(baseIndex + 100, playableVideos.length - 1));
+          jumpByPageStep(100);
         } else if (e.shiftKey) {
-          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-          jumpToPlayableIndex(Math.min(baseIndex + 10, playableVideos.length - 1));
+          jumpByPageStep(10);
         } else {
           goToNext();
         }
@@ -624,11 +644,9 @@ export default function Home() {
         if (e.metaKey && e.shiftKey) {
           jumpToPlayableIndex(0);
         } else if (e.metaKey) {
-          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-          jumpToPlayableIndex(Math.max(baseIndex - 100, 0));
+          jumpByPageStep(-100);
         } else if (e.shiftKey) {
-          const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
-          jumpToPlayableIndex(Math.max(baseIndex - 10, 0));
+          jumpByPageStep(-10);
         } else {
           goToPrev();
         }
@@ -897,7 +915,6 @@ export default function Home() {
             {/* Go Previous */}
             <button 
               onClick={goToPrev}
-              disabled={displayIndex === 0}
               className={`${sidePanelButtonClass} -mt-1`}
               title="Previous (↑)"
             >
@@ -941,7 +958,6 @@ export default function Home() {
             {/* Go Next */}
             <button 
               onClick={goToNext}
-              disabled={displayIndex === displayTotal - 1}
               className={`${sidePanelButtonClass} -mb-1`}
               title="Next (↓)"
             >
