@@ -676,6 +676,7 @@ export default function Home() {
   const prevVideo = currentPlayableIndex > 0 ? playableVideos[currentPlayableIndex - 1] : null;
   const nextVideo = currentPlayableIndex !== -1 && currentPlayableIndex < playableVideos.length - 1 ? playableVideos[currentPlayableIndex + 1] : null;
   const renderVideos = [prevVideo, currentVideo, nextVideo].filter(Boolean) as Video[];
+  const sidePanelButtonClass = "w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:ring-offset-0";
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -743,7 +744,7 @@ export default function Home() {
             <button 
               onClick={() => jumpToPlayableIndex(0)}
               disabled={displayIndex === 0}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              className={sidePanelButtonClass}
               title="Jump to Newest (⌘+Shift+↑)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -755,7 +756,7 @@ export default function Home() {
             <button 
               onClick={goToPrev}
               disabled={displayIndex === 0}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mt-1"
+              className={`${sidePanelButtonClass} -mt-1`}
               title="Previous (↑)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -799,7 +800,7 @@ export default function Home() {
             <button 
               onClick={goToNext}
               disabled={displayIndex === displayTotal - 1}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer -mb-1"
+              className={`${sidePanelButtonClass} -mb-1`}
               title="Next (↓)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -811,7 +812,7 @@ export default function Home() {
             <button 
               onClick={() => jumpToPlayableIndex(playableVideos.length - 1)}
               disabled={displayIndex === displayTotal - 1}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 disabled:opacity-20 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              className={sidePanelButtonClass}
               title="Jump to Oldest (⌘+Shift+↓)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -824,7 +825,7 @@ export default function Home() {
             {/* Search Gallery Toggle */}
             <button 
               onClick={() => setShowThumbnailGrid(true)}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              className={sidePanelButtonClass}
               title="Search gallery (/)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -840,7 +841,7 @@ export default function Home() {
                 const randomIndex = Math.floor(Math.random() * playableVideos.length);
                 jumpToPlayableIndex(randomIndex);
               }}
-              className="w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+              className={sidePanelButtonClass}
               title="Random jump (R)"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
