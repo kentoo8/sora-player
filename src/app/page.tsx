@@ -14,10 +14,19 @@ type Video = {
   tags?: string[];
 };
 
+type SortOrder = 'newest' | 'oldest';
+
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
 const thumbnailCache = new Map<string, string>();
 const cameoPattern = /@[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*/g;
 const UNTAGGED_FILTER = '__untagged__';
+
+function sortVideosByTimestamp(videoList: Video[], sortOrder: SortOrder) {
+  return [...videoList].sort((a, b) => {
+    const diff = (a.timestamp || 0) - (b.timestamp || 0);
+    return sortOrder === 'oldest' ? diff : -diff;
+  });
+}
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
 function ThumbnailItem({
@@ -219,6 +228,7 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [isEditingIndex, setIsEditingIndex] = useState(false);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -252,13 +262,20 @@ export default function Home() {
   }, [searchQuery, isComposing]);
 
   const matchesSearchQuery = (video: Video, searchValue: string) => {
-    if (!searchValue.trim()) return true;
-    const query = searchValue.toLowerCase();
-    return (
-      (video.prompt?.toLowerCase().includes(query)) ||
-      (video.account?.toLowerCase().includes(query)) ||
-      (video.filename?.toLowerCase().includes(query))
-    );
+    const queries = searchValue
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (queries.length === 0) return true;
+
+    const searchableText = [
+      video.prompt,
+      video.account,
+      video.filename
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return queries.every(query => searchableText.includes(query));
   };
 
   const matchesTag = (video: Video, tag: string) => {
@@ -357,6 +374,29 @@ export default function Home() {
     }
 
     jumpToPlayableIndex(baseIndex === 0 ? lastIndex : Math.max(baseIndex + delta, 0));
+  };
+
+  const changeSortOrder = (nextSortOrder: SortOrder) => {
+    if (nextSortOrder === sortOrder) return;
+
+    const activeId = videos[currentIndex]?.id;
+    const scrollTop = galleryScrollRef.current?.scrollTop ?? 0;
+    const nextVideos = sortVideosByTimestamp(videos, nextSortOrder);
+    setSortOrder(nextSortOrder);
+    setVideos(nextVideos);
+
+    if (activeId) {
+      const nextIndex = nextVideos.findIndex(video => video.id === activeId);
+      setCurrentIndex(nextIndex === -1 ? 0 : nextIndex);
+    } else {
+      setCurrentIndex(0);
+    }
+
+    requestAnimationFrame(() => {
+      if (galleryScrollRef.current) {
+        galleryScrollRef.current.scrollTop = scrollTop;
+      }
+    });
   };
 
   const playFromSearchInput = (searchValue: string) => {
@@ -693,10 +733,11 @@ export default function Home() {
     ])
       .then(([videosData, tagsData]) => {
         const tagMap = tagsData.videos || {};
-        setVideos((videosData.videos || []).map((video: Video) => ({
+        const videosWithTags = (videosData.videos || []).map((video: Video) => ({
           ...video,
           tags: tagMap[video.filename] || []
-        })));
+        }));
+        setVideos(sortVideosByTimestamp(videosWithTags, sortOrder));
         setLoading(false);
       })
       .catch(err => {
@@ -1089,6 +1130,8 @@ export default function Home() {
     ? currentPlayableIndex
     : currentIndex;
   const displayTotal = isSearchPlaybackActive ? playableVideos.length : videos.length;
+  const firstJumpTitle = sortOrder === 'newest' ? 'Jump to Newest (⌘+Shift+↑)' : 'Jump to Oldest (⌘+Shift+↑)';
+  const lastJumpTitle = sortOrder === 'newest' ? 'Jump to Oldest (⌘+Shift+↓)' : 'Jump to Newest (⌘+Shift+↓)';
 
   // シームレスな切り替えのため、現在・前・次の動画を事前にマウントしておく
   const prevVideo = currentPlayableIndex > 0 ? playableVideos[currentPlayableIndex - 1] : null;
@@ -1162,7 +1205,7 @@ export default function Home() {
             <button 
               onClick={() => jumpToPlayableIndex(0)}
               className={sidePanelButtonClass}
-              title="Jump to Newest (⌘+Shift+↑)"
+              title={firstJumpTitle}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 4h14M12 20V8M7 13l5-5 5 5" />
@@ -1227,7 +1270,7 @@ export default function Home() {
             <button 
               onClick={() => jumpToPlayableIndex(playableVideos.length - 1)}
               className={sidePanelButtonClass}
-              title="Jump to Oldest (⌘+Shift+↓)"
+              title={lastJumpTitle}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 20h14M12 4v12M7 11l5 5 5-5" />
@@ -1369,6 +1412,34 @@ export default function Home() {
                     {activeTag && ` tagged "${activeTagLabel}"`}
                   </p>
                 )}
+              </div>
+              <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-1">
+                <button
+                  onClick={(e) => {
+                    e.currentTarget.blur();
+                    changeSortOrder(sortOrder === 'newest' ? 'oldest' : 'newest');
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white transition-colors hover:bg-white/20"
+                  title={sortOrder === 'newest' ? '現在: 新しい順。クリックで古い順に切り替え' : '現在: 古い順。クリックで新しい順に切り替え'}
+                >
+                  {sortOrder === 'newest' ? (
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 5h8" />
+                      <path d="M11 12h6" />
+                      <path d="M11 19h4" />
+                      <path d="M5 5v14" />
+                      <path d="m2 16 3 3 3-3" />
+                    </svg>
+                  ) : (
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 5h4" />
+                    <path d="M11 12h6" />
+                    <path d="M11 19h8" />
+                    <path d="M5 19V5" />
+                    <path d="m2 8 3-3 3 3" />
+                  </svg>
+                  )}
+                </button>
               </div>
             </div>
 
