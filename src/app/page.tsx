@@ -460,6 +460,15 @@ export default function Home() {
     setCurrentIndex(0);
   };
 
+  const openTagGallery = (tag: string) => {
+    setSearchQuery('');
+    setActiveSearchQuery('');
+    setActiveTag(tag);
+    setSelectedVideoIds(new Set());
+    setTagInput('');
+    setShowThumbnailGrid(true);
+  };
+
   // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
   useEffect(() => {
     if (showThumbnailGrid) {
@@ -1140,9 +1149,14 @@ export default function Home() {
             {currentVideo.tags && currentVideo.tags.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {currentVideo.tags.map(tag => (
-                  <span key={tag} className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/75 backdrop-blur-md border border-white/10">
+                  <button
+                    key={tag}
+                    onClick={() => openTagGallery(tag)}
+                    className="pointer-events-auto rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/75 backdrop-blur-md border border-white/10 transition-colors hover:bg-blue-500/25 hover:text-blue-100 hover:border-blue-300/50 focus:outline-none focus-visible:border-blue-200"
+                    title={`タグ "${tag}" のギャラリーを表示`}
+                  >
                     {tag}
-                  </span>
+                  </button>
                 ))}
               </div>
             )}
