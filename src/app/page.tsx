@@ -580,7 +580,7 @@ export default function Home() {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const bottomThreshold = window.innerHeight * 0.4; // 下部40%を判定範囲に
-    const leftThreshold = 200; // 左側は固定値
+    const leftThreshold = window.innerWidth * 0.4; // 左側40%を判定範囲に
     const isNearBottom = e.clientY > window.innerHeight - bottomThreshold;
     const isNearLeft = e.clientX < leftThreshold;
     setShowControls(isNearBottom || isNearLeft);
