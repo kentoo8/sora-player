@@ -24,11 +24,14 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
      ├── User_A/                (1) アカウント名でフォルダを作成
      │   ├── sora-data-files-export-1/  (2) Sora からのエクスポートフォルダ
      │   ├── sora-data-files-export-2/
+     │   ├── sora-data-files-manual/    (3) 手動で追加した動画フォルダ
      │   └── ...
-     ├── User_B/                (3) 複数アカウントがある場合は同様に作成
+     ├── User_B/                (4) 複数アカウントがある場合は同様に作成
      │   └── sora-data-files-export-1/
      └── ...
    ```
+
+   手動で追加した動画フォルダにも `generations.json` を置くことができます。`generations.json` があるフォルダ配下では、動画ファイル名から拡張子を除いた値と JSON の `id` が一致する動画だけがギャラリー対象になります。
 
 4. **設定 (任意)**: デフォルトではプロジェクト内の `videos/` フォルダを参照しますが、以下の手順で任意の場所にある動画ライブラリを参照できます。
    1. `config.json.example` を `config.json` という名前でコピーします。
