@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails']);
+
 // ULIDの最初の10文字からタイムスタンプをデコードする関数
 const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ENCODING_LEN = ENCODING.length;
@@ -66,20 +68,22 @@ export async function GET() {
   const seenFilenames = new Set<string>();
 
   // ディレクトリを再帰的に走査
-  function scanDir(dir: string, accountName?: string) {
+  function scanDir(dir: string, accountName?: string, inheritedMetadataMap?: Map<string, any>) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     
     const isBaseDir = dir === absoluteVideosDir;
-    let metadataMap = new Map<string, any>();
+    let metadataMap = inheritedMetadataMap;
     const metaPath = path.join(dir, 'generations.json');
     if (fs.existsSync(metaPath)) {
       try {
         const metaContent = fs.readFileSync(metaPath, 'utf8');
         const metaJson = JSON.parse(metaContent);
         if (Array.isArray(metaJson)) {
+          const nextMetadataMap = new Map<string, any>();
           metaJson.forEach(item => {
-            if (item.id) metadataMap.set(item.id, item);
+            if (item.id) nextMetadataMap.set(item.id, item);
           });
+          metadataMap = nextMetadataMap;
         }
       } catch (e) {}
     }
@@ -98,7 +102,7 @@ export async function GET() {
 
       if (entry.isDirectory()) {
         // サムネイルフォルダはスキップ
-        if (entry.name === '_thumbnails') continue;
+        if (IGNORED_SCAN_DIRECTORIES.has(entry.name)) continue;
 
         let nextAccountName = accountName;
         if (isBaseDir) {
@@ -116,9 +120,13 @@ export async function GET() {
         }
         
         seenPaths.add(realPath);
-        scanDir(fullPath, nextAccountName);
+        scanDir(fullPath, nextAccountName, metadataMap);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
         const filenameId = entry.name.replace(/\.mp4$/i, '');
+
+        // generations.json があるフォルダ配下では、JSONに存在する動画だけを正式な生成物として扱う
+        const meta = metadataMap?.get(filenameId);
+        if (metadataMap && !meta) continue;
 
         // ファイル名（ID）ベースで重複チェック (共有動画対策)
         if (seenFilenames.has(filenameId)) continue;
@@ -143,7 +151,6 @@ export async function GET() {
         let title = '';
         let prompt = '';
 
-        const meta = metadataMap.get(filenameId);
         if (meta) {
           title = meta.title || '';
           prompt = meta.prompt || '';
