@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, memo, type ReactNode } from 'react';
 
 type Video = {
   id: string;
@@ -38,7 +38,7 @@ function sortVideosByTimestamp(videoList: Video[], sortOrder: SortOrder) {
 }
 
 // サムネイル個別のコンポーネント（遅延読み込み + フレームキャプチャキャッシュ）
-function ThumbnailItem({
+const ThumbnailItem = memo(function ThumbnailItem({
   video,
   index,
   isActive,
@@ -229,7 +229,17 @@ function ThumbnailItem({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.filteredIndex === nextProps.filteredIndex &&
+    prevProps.index === nextProps.index &&
+    prevProps.video.id === nextProps.video.id &&
+    prevProps.video.thumbnail === nextProps.video.thumbnail &&
+    prevProps.video.tags?.join(',') === nextProps.video.tags?.join(',')
+  );
+});
 
 export default function Home() {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -780,10 +790,9 @@ export default function Home() {
     return parts.length > 0 ? parts : prompt;
   };
 
-  // showThumbnailGridが変わったときにrenderGridを同期（閉じる時はアニメーション後に消す）
+  // showThumbnailGridが変わったときの処理（フォーカス制御や検索バーの同期）
   useEffect(() => {
     if (showThumbnailGrid) {
-      setRenderGrid(true);
       setShowSearchBar(true);
 
       // 履歴移動やタグクリックによる遷移の場合は検索窓への自動フォーカスをスキップする
@@ -799,9 +808,6 @@ export default function Home() {
     } else {
       searchInputRef.current?.blur();
       setShowSearchBar(false);
-
-      const timer = setTimeout(() => setRenderGrid(false), 150);
-      return () => clearTimeout(timer);
     }
   }, [showThumbnailGrid]);
 
@@ -913,6 +919,7 @@ export default function Home() {
         }));
         setVideos(sortVideosByTimestamp(videosWithTags, sortOrder));
         setLoading(false);
+        setRenderGrid(true); // 初期ロード完了時にギャラリーをマウントしておく
       })
       .catch(err => {
         console.error(err);
@@ -1634,8 +1641,8 @@ export default function Home() {
 
       {/* Thumbnail Grid Overlay */}
       <div 
-        className={`fixed inset-0 z-50 transition-all duration-150 ease-out ${
-          showThumbnailGrid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none translate-y-2'
+        className={`fixed inset-0 z-50 transition-opacity duration-100 ease-out ${
+          showThumbnailGrid ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* 背景（クリックで閉じる） */}
