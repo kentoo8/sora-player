@@ -1991,7 +1991,7 @@ export default function Home() {
             className="bg-white/10 border border-white/20 rounded-2xl p-8 w-full max-w-md shadow-2xl backdrop-blur-xl"
             onClick={e => e.stopPropagation()}
           >
-            <h2 className="text-white font-semibold text-lg mb-6 text-center">キーボードショートカット</h2>
+            <h2 className="text-white font-semibold text-lg mb-6 text-center">ショートカット・操作ガイド</h2>
             <div className="space-y-3 text-sm">
               {[
                 ['↑ / ↓', '前後の動画へ移動'],
@@ -2005,6 +2005,8 @@ export default function Home() {
                 ['f', 'フルスクリーン 切り替え'],
                 ['Esc', 'ギャラリー / このパネルを閉じる'],
                 ['?', 'このヘルプを表示 / 非表示'],
+                ['左右スワイプ', '2本指/タッチフリックで履歴移動'],
+                ['縦スワイプ', '動画の切り替え（ホイール等）'],
               ].map(([key, desc]) => (
                 <div key={key} className="flex items-center justify-between gap-4">
                   <kbd className="px-2.5 py-1 bg-white/10 border border-white/20 rounded-lg text-white font-mono text-xs min-w-[80px] text-center">{key}</kbd>
