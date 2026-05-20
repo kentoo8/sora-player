@@ -16,6 +16,15 @@ type Video = {
 
 type SortOrder = 'newest' | 'oldest';
 
+interface NavigationSnapshot {
+  videoId?: string;
+  showThumbnailGrid: boolean;
+  searchQuery: string;
+  activeSearchQuery: string;
+  activeTag: string;
+  galleryScrollTop: number;
+}
+
 // サムネイルの静止画キャッシュ（ビデオのデコード負荷を避けるため）
 const thumbnailCache = new Map<string, string>();
 const cameoPattern = /@[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*/g;
@@ -255,6 +264,8 @@ export default function Home() {
   const selectionAutoScrollFrameRef = useRef<number | null>(null);
   const selectionDragAnchorRef = useRef<number>(-1);
   const selectionDragBaseIdsRef = useRef<Set<string>>(new Set());
+  const backHistoryRef = useRef<NavigationSnapshot[]>([]);
+  const forwardHistoryRef = useRef<NavigationSnapshot[]>([]);
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -325,6 +336,69 @@ export default function Home() {
   const playableVideos = isSearchPlaybackActive ? filteredVideos : videos;
   const currentVideoId = videos[currentIndex]?.id;
   const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
+
+  const captureNavigationSnapshot = (): NavigationSnapshot => ({
+    videoId: currentVideoId,
+    showThumbnailGrid,
+    searchQuery,
+    activeSearchQuery,
+    activeTag,
+    galleryScrollTop: galleryScrollRef.current?.scrollTop ?? 0
+  });
+
+  const isSameNavigationSnapshot = (a: NavigationSnapshot, b: NavigationSnapshot) => (
+    a.videoId === b.videoId &&
+    a.showThumbnailGrid === b.showThumbnailGrid &&
+    a.searchQuery === b.searchQuery &&
+    a.activeSearchQuery === b.activeSearchQuery &&
+    a.activeTag === b.activeTag
+  );
+
+  const pushNavigationSnapshot = () => {
+    const snapshot = captureNavigationSnapshot();
+    const lastSnapshot = backHistoryRef.current[backHistoryRef.current.length - 1];
+    if (!lastSnapshot || !isSameNavigationSnapshot(lastSnapshot, snapshot)) {
+      backHistoryRef.current.push(snapshot);
+    }
+    forwardHistoryRef.current = [];
+  };
+
+  const applyNavigationSnapshot = (snapshot: NavigationSnapshot) => {
+    setSearchQuery(snapshot.searchQuery);
+    setActiveSearchQuery(snapshot.activeSearchQuery);
+    setActiveTag(snapshot.activeTag);
+    setSelectedVideoIds(new Set());
+    setTagInput('');
+    setRemovedCommonTags(new Set());
+    setShowThumbnailGrid(snapshot.showThumbnailGrid);
+
+    if (snapshot.videoId) {
+      const nextIndex = videos.findIndex(video => video.id === snapshot.videoId);
+      if (nextIndex !== -1) setCurrentIndex(nextIndex);
+    }
+
+    if (snapshot.showThumbnailGrid) {
+      requestAnimationFrame(() => {
+        if (galleryScrollRef.current) {
+          galleryScrollRef.current.scrollTop = snapshot.galleryScrollTop;
+        }
+      });
+    }
+  };
+
+  const goBackInNavigationHistory = () => {
+    const previousSnapshot = backHistoryRef.current.pop();
+    if (!previousSnapshot) return;
+    forwardHistoryRef.current.push(captureNavigationSnapshot());
+    applyNavigationSnapshot(previousSnapshot);
+  };
+
+  const goForwardInNavigationHistory = () => {
+    const nextSnapshot = forwardHistoryRef.current.pop();
+    if (!nextSnapshot) return;
+    backHistoryRef.current.push(captureNavigationSnapshot());
+    applyNavigationSnapshot(nextSnapshot);
+  };
 
   useEffect(() => {
     filteredVideosRef.current = filteredVideos;
@@ -418,6 +492,7 @@ export default function Home() {
     setActiveSearchQuery(searchValue);
 
     if (!nextQuery) {
+      pushNavigationSnapshot();
       setShowThumbnailGrid(false);
       return;
     }
@@ -428,6 +503,7 @@ export default function Home() {
       return;
     }
 
+    pushNavigationSnapshot();
     setCurrentIndex(firstResultIndex);
     setShowThumbnailGrid(false);
   };
@@ -958,6 +1034,18 @@ export default function Home() {
         return;
       }
 
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBackInNavigationHistory();
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goForwardInNavigationHistory();
+        return;
+      }
+
       // ギャラリー表示中はナビゲーションを無効化
       if (showThumbnailGrid) return;
 
@@ -999,7 +1087,7 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videos, currentIndex, playableVideos, currentPlayableIndex, showThumbnailGrid]);
+  }, [videos, currentIndex, playableVideos, currentPlayableIndex, showThumbnailGrid, searchQuery, activeSearchQuery, activeTag]);
 
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
   useEffect(() => {
@@ -1554,6 +1642,7 @@ export default function Home() {
                     onSelectionDragStart={(clientX, clientY) => startSelectionDrag(index, clientX, clientY)}
                     onSelectionDragEnter={() => selectVideoDuringDrag(index)}
                     onClick={() => {
+                      pushNavigationSnapshot();
                       setCurrentIndex(originalIndex);
                       setShowThumbnailGrid(false);
                     }}
@@ -1795,6 +1884,7 @@ export default function Home() {
                 ['↑ / ↓', '前後の動画へ移動'],
                 ['Shift + ↑↓', '10件スキップ'],
                 ['⌘ + ↑↓', '100件スキップ'],
+                ['← / →', '閲覧履歴を戻る / 進む'],
                 ['Space', '再生 / 一時停止'],
                 ['/', '検索ギャラリー 開く / フォーカス'],
                 ['r', 'ランダムジャンプ'],
