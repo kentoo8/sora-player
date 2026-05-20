@@ -706,6 +706,7 @@ export default function Home() {
   };
 
   const resetGalleryToAll = () => {
+    pushNavigationSnapshot();
     setSearchQuery('');
     setActiveSearchQuery('');
     setActiveTag('');
@@ -715,7 +716,14 @@ export default function Home() {
     setCurrentIndex(0);
   };
 
+  const selectTagWithHistory = (tag: string) => {
+    if (tag === activeTag) return;
+    pushNavigationSnapshot();
+    setActiveTag(tag);
+  };
+
   const openTagGallery = (tag: string) => {
+    pushNavigationSnapshot();
     setSearchQuery('');
     setActiveSearchQuery('');
     setActiveTag(tag);
@@ -726,6 +734,7 @@ export default function Home() {
   };
 
   const openSearchGallery = (searchValue: string) => {
+    pushNavigationSnapshot();
     setSearchQuery(searchValue);
     setActiveSearchQuery(searchValue);
     setActiveTag('');
@@ -1634,7 +1643,7 @@ export default function Home() {
               {(tagCounts.length > 0 || untaggedVideoCount > 0) && (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setActiveTag('')}
+                    onClick={() => selectTagWithHistory('')}
                     className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
                       activeTag === ''
                         ? 'border-white/40 bg-white/15 text-white'
@@ -1645,7 +1654,7 @@ export default function Home() {
                   </button>
                   {untaggedVideoCount > 0 && (
                     <button
-                      onClick={() => setActiveTag(UNTAGGED_FILTER)}
+                      onClick={() => selectTagWithHistory(UNTAGGED_FILTER)}
                       className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
                         activeTag === UNTAGGED_FILTER
                           ? 'border-blue-300/60 bg-blue-500/20 text-blue-100'
@@ -1658,7 +1667,7 @@ export default function Home() {
                   {tagCounts.map(([tag, count]) => (
                     <button
                       key={tag}
-                      onClick={() => setActiveTag(tag)}
+                      onClick={() => selectTagWithHistory(tag)}
                       className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
                         activeTag === tag
                           ? 'border-blue-300/60 bg-blue-500/20 text-blue-100'
@@ -1880,6 +1889,9 @@ export default function Home() {
                         const isComposingText = isComposing || e.nativeEvent.isComposing;
                         if (e.key === 'Enter' && !isComposingText) {
                           e.preventDefault();
+                          if (e.currentTarget.value.trim() !== searchQuery.trim()) {
+                            pushNavigationSnapshot();
+                          }
                           setSearchQuery(e.currentTarget.value);
                           setActiveSearchQuery(e.currentTarget.value);
                         }
@@ -1888,7 +1900,10 @@ export default function Home() {
                     />
                     {searchQuery && (
                       <button
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => {
+                          pushNavigationSnapshot();
+                          setSearchQuery('');
+                        }}
                         className="pr-3 text-white/30 hover:text-white transition-colors shrink-0"
                         title="検索をクリア"
                       >
