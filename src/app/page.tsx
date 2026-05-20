@@ -133,6 +133,7 @@ function ThumbnailItem({
     <div 
       ref={containerRef}
       data-filtered-index={filteredIndex}
+      data-active={isActive}
       onClick={onClick}
       onPointerEnter={onSelectionDragEnter}
       className={`group relative aspect-[9/16] bg-white/5 rounded-2xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
@@ -266,6 +267,8 @@ export default function Home() {
   const selectionDragBaseIdsRef = useRef<Set<string>>(new Set());
   const backHistoryRef = useRef<NavigationSnapshot[]>([]);
   const forwardHistoryRef = useRef<NavigationSnapshot[]>([]);
+  const isNavigatingHistoryRef = useRef(false);
+  const shouldScrollToActiveRef = useRef(false);
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -380,7 +383,9 @@ export default function Home() {
     if (snapshot.showThumbnailGrid) {
       requestAnimationFrame(() => {
         if (galleryScrollRef.current) {
-          galleryScrollRef.current.scrollTop = snapshot.galleryScrollTop;
+          if (snapshot.galleryScrollTop !== -1) {
+            galleryScrollRef.current.scrollTop = snapshot.galleryScrollTop;
+          }
         }
       });
     }
@@ -389,15 +394,39 @@ export default function Home() {
   const goBackInNavigationHistory = () => {
     const previousSnapshot = backHistoryRef.current.pop();
     if (!previousSnapshot) return;
+
+    if (!showThumbnailGrid && previousSnapshot.showThumbnailGrid) {
+      previousSnapshot.videoId = currentVideoId;
+      previousSnapshot.galleryScrollTop = -1;
+      shouldScrollToActiveRef.current = true;
+    }
+
+    isNavigatingHistoryRef.current = true;
     forwardHistoryRef.current.push(captureNavigationSnapshot());
     applyNavigationSnapshot(previousSnapshot);
+
+    requestAnimationFrame(() => {
+      isNavigatingHistoryRef.current = false;
+    });
   };
 
   const goForwardInNavigationHistory = () => {
     const nextSnapshot = forwardHistoryRef.current.pop();
     if (!nextSnapshot) return;
+
+    if (!showThumbnailGrid && nextSnapshot.showThumbnailGrid) {
+      nextSnapshot.videoId = currentVideoId;
+      nextSnapshot.galleryScrollTop = -1;
+      shouldScrollToActiveRef.current = true;
+    }
+
+    isNavigatingHistoryRef.current = true;
     backHistoryRef.current.push(captureNavigationSnapshot());
     applyNavigationSnapshot(nextSnapshot);
+
+    requestAnimationFrame(() => {
+      isNavigatingHistoryRef.current = false;
+    });
   };
 
   useEffect(() => {
@@ -744,10 +773,13 @@ export default function Home() {
       setRenderGrid(true);
       setShowSearchBar(true);
 
-      const frameId = requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
-      });
-      return () => cancelAnimationFrame(frameId);
+      // 履歴移動による遷移の場合は検索窓への自動フォーカスをスキップする
+      if (!isNavigatingHistoryRef.current) {
+        const frameId = requestAnimationFrame(() => {
+          searchInputRef.current?.focus();
+        });
+        return () => cancelAnimationFrame(frameId);
+      }
     } else {
       searchInputRef.current?.blur();
       setShowSearchBar(false);
@@ -756,6 +788,20 @@ export default function Home() {
       return () => clearTimeout(timer);
     }
   }, [showThumbnailGrid]);
+
+  // ギャラリー表示時に現在選択されている動画をスクロール位置の中央に表示する
+  useEffect(() => {
+    if (showThumbnailGrid && shouldScrollToActiveRef.current) {
+      shouldScrollToActiveRef.current = false;
+      const timer = setTimeout(() => {
+        const activeEl = galleryScrollRef.current?.querySelector('[data-active="true"]');
+        if (activeEl) {
+          activeEl.scrollIntoView({ behavior: 'auto', block: 'center' });
+        }
+      }, 50); // DOMのレンダリング完了を待つためにわずかにディレイを入れる
+      return () => clearTimeout(timer);
+    }
+  }, [showThumbnailGrid, currentIndex]);
 
   // 選択動画が変わったらpendingTagsを共通タグで初期化
   useEffect(() => {
