@@ -269,6 +269,7 @@ export default function Home() {
   const forwardHistoryRef = useRef<NavigationSnapshot[]>([]);
   const isNavigatingHistoryRef = useRef(false);
   const shouldScrollToActiveRef = useRef(false);
+  const skipSearchFocusRef = useRef(false);
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -719,11 +720,13 @@ export default function Home() {
   const selectTagWithHistory = (tag: string) => {
     if (tag === activeTag) return;
     pushNavigationSnapshot();
+    skipSearchFocusRef.current = true;
     setActiveTag(tag);
   };
 
   const openTagGallery = (tag: string) => {
     pushNavigationSnapshot();
+    skipSearchFocusRef.current = true;
     setSearchQuery('');
     setActiveSearchQuery('');
     setActiveTag(tag);
@@ -735,6 +738,7 @@ export default function Home() {
 
   const openSearchGallery = (searchValue: string) => {
     pushNavigationSnapshot();
+    skipSearchFocusRef.current = true;
     setSearchQuery(searchValue);
     setActiveSearchQuery(searchValue);
     setActiveTag('');
@@ -782,13 +786,16 @@ export default function Home() {
       setRenderGrid(true);
       setShowSearchBar(true);
 
-      // 履歴移動による遷移の場合は検索窓への自動フォーカスをスキップする
-      if (!isNavigatingHistoryRef.current) {
+      // 履歴移動やタグクリックによる遷移の場合は検索窓への自動フォーカスをスキップする
+      if (!isNavigatingHistoryRef.current && !skipSearchFocusRef.current) {
         const frameId = requestAnimationFrame(() => {
           searchInputRef.current?.focus();
         });
         return () => cancelAnimationFrame(frameId);
       }
+      
+      // フラグをリセット
+      skipSearchFocusRef.current = false;
     } else {
       searchInputRef.current?.blur();
       setShowSearchBar(false);
