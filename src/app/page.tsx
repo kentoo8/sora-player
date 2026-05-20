@@ -887,8 +887,10 @@ export default function Home() {
 
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const progressRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const lastScrollTime = useRef(0);
+  const lastHistoryNavTimeRef = useRef(0);
 
   useEffect(() => {
     Promise.all([
@@ -1154,15 +1156,35 @@ export default function Home() {
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // ギャラリー表示中はホイールによる動画切り替えを無効化
-      if (showThumbnailGrid) return;
-
       const now = Date.now();
       const cooldown = 800; // 連打防止（ミリ秒）
-      if (now - lastScrollTime.current < cooldown) return;
+      const thresholdX = 40; // 左右スワイプのしきい値
+      const thresholdY = 30; // 上下スクロールによる切り替えのしきい値
 
-      const threshold = 30; // 誤操作防止の閾値
-      if (Math.abs(e.deltaY) > threshold) {
+      // 1. 左右フリックによる履歴ナビゲーション（ギャラリー表示中かどうかにかかわらず検知）
+      if (Math.abs(e.deltaX) > thresholdX && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // ブラウザ標準の左右スワイプ戻る・進む挙動を防止
+        e.preventDefault();
+
+        if (now - lastHistoryNavTimeRef.current < cooldown) return;
+
+        if (e.deltaX < 0) {
+          // 左から右へのフリック（戻る）
+          goBackInNavigationHistory();
+        } else {
+          // 右から左へのフリック（進む）
+          goForwardInNavigationHistory();
+        }
+        lastHistoryNavTimeRef.current = now;
+        return;
+      }
+
+      // 2. 上下フリックによる動画切り替え（ギャラリー表示中は無効化）
+      if (showThumbnailGrid) return;
+
+      if (Math.abs(e.deltaY) > thresholdY && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        if (now - lastScrollTime.current < cooldown) return;
+
         if (e.deltaY > 0) {
           goToNext();
         } else {
@@ -1172,7 +1194,8 @@ export default function Home() {
       }
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: true });
+    // passive: false にして preventDefault() を有効にする
+    window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
   }, [videos.length, showThumbnailGrid, playableVideos, currentPlayableIndex]); // goToNext/goToPrev が再生対象に依存するため
 
@@ -1325,22 +1348,44 @@ export default function Home() {
   const sidePanelButtonClass = "w-10 h-10 flex items-center justify-center text-white hover:text-blue-400 transition-all hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:ring-offset-0";
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchStartX.current - touchEndX;
     const deltaY = touchStartY.current - touchEndY;
     const threshold = 50; // pixels
 
-    if (deltaY > threshold) {
-      // Swipe Up -> Next
-      goToNext();
-    } else if (deltaY < -threshold) {
-      // Swipe Down -> Prev
-      goToPrev();
+    // 横方向スワイプが優勢な場合
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (Math.abs(deltaX) > threshold) {
+        if (deltaX > 0) {
+          // 右から左へスワイプ（進む）
+          goForwardInNavigationHistory();
+        } else {
+          // 左から右へスワイプ（戻る）
+          goBackInNavigationHistory();
+        }
+      }
+    } 
+    // 縦方向スワイプが優勢な場合（ギャラリー表示中は無効）
+    else if (!showThumbnailGrid) {
+      if (Math.abs(deltaY) > threshold) {
+        if (deltaY > 0) {
+          // 下から上へスワイプ（次へ）
+          goToNext();
+        } else {
+          // 上から下へスワイプ（前へ）
+          goToPrev();
+        }
+      }
     }
+
+    touchStartX.current = null;
     touchStartY.current = null;
   };
 
