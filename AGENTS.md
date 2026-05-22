@@ -12,6 +12,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `git push` はどのような場合であっても絶対に行わないこと。
 - ブラウザ上の操作確認は原則ユーザーが担当する。AIは実装、静的確認、`npm run build` などのコマンド確認を担当し、必要な確認手順をチャット上に提示する。
 
+## Codex sandbox からの実行
+
+- `~/src/sora-gallery` から作業している Codex セッションでは、この `sora-player` リポジトリは writable root 外になることがある。
+- `data/gallery-export-manifest.json` の生成・更新など、`sora-player` 側にファイルを書き込むコマンドは、最初から権限付きで実行する。
+- 例: `npm run prepare:gallery-upload` で manifest を作る場合、通常実行で失敗させてから再実行しない。
+- 読み取り、`git status`、差分確認などは通常実行でよい。
+
 
 # コミットメッセージのフォーマット
 
