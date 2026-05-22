@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
+    "export:gallery": "node scripts/export-gallery.mjs",
     "open": "open http://localhost:3000 || start http://localhost:3000"
   },
   "dependencies": {

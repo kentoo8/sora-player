@@ -115,6 +115,24 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
 - `data/tags.json` はローカル個人データとして Git の管理対象外です。バックアップしたい場合はこのファイルをコピーしてください。
 - `generations.json` があるフォルダ配下では、JSON に記録された ID と一致する動画だけがギャラリー対象になります。
 
+## sora-gallery 向け公開データの書き出し
+`sora-gallery` に渡す `public/videos.json` は、ローカルの動画一覧とタグから生成できます。誤公開を避けるため、書き出し対象にするローカルタグは `--include-tag` で必ず指定します。
+
+```bash
+npm run export:gallery -- \
+  --public-base-url https://cdn.example.com/sora \
+  --include-tag public \
+  --out ../sora-gallery/public/videos.json
+```
+
+- `--public-base-url` は、R2 などに置いた動画とサムネイルが公開される HTTPS のベース URL です。
+- `--include-tag public` のように指定したタグが付いた動画だけを書き出します。この制御タグは公開タグからは除外されます。
+- タグファイルを明示する場合は `--tags data/tags.json` のように指定できます。
+- `data/gallery-export-manifest.json` にローカル動画と公開 ID の対応を保存します。公開 ID はローカルのファイル名とは別に生成されます。
+- 出力される JSON には `id`, `videoUrl`, `thumbnailUrl`, `prompt`, `tags`, `createdAt` と、存在する場合のみ `description` が含まれます。
+- このコマンドは JSON を生成するだけで、動画ファイルやサムネイルを R2 へアップロードしません。
+- 確認だけ行う場合は `--dry-run` を付けます。
+
 ## 補足
 @hio1345は作者のSora2アカウント名でした
 
