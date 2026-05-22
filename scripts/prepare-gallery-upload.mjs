@@ -110,6 +110,8 @@ function assertWebpThumbnail(source) {
 function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
   const videosOutDir = path.join(outDir, 'videos');
   const thumbnailsOutDir = path.join(outDir, 'thumbnails');
+  assertEmptyDirectory(videosOutDir);
+  assertEmptyDirectory(thumbnailsOutDir);
   fs.mkdirSync(videosOutDir, { recursive: true });
   fs.mkdirSync(thumbnailsOutDir, { recursive: true });
 
@@ -135,6 +137,15 @@ function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
     });
   }
   return copied;
+}
+
+function assertEmptyDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) return;
+
+  const entries = fs.readdirSync(dirPath);
+  if (entries.length > 0) {
+    throw new Error(`Output directory must be empty: ${dirPath}`);
+  }
 }
 
 export function main() {
