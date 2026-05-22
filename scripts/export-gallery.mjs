@@ -4,13 +4,14 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails']);
 const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const ENCODING_LEN = ENCODING.length;
 const DEFAULT_PRIVATE_TAGS = ['public', 'private', 'internal'];
 
-function printUsage() {
+export function printUsage() {
   console.log(`Usage:
   npm run export:gallery -- --public-base-url https://cdn.example.com/sora --include-tag public --out ../sora-gallery/public/videos.json
 
@@ -27,7 +28,7 @@ Options:
 `);
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     out: path.resolve(process.cwd(), '../sora-gallery/public/videos.json'),
     manifest: path.resolve(process.cwd(), 'data/gallery-export-manifest.json'),
@@ -75,40 +76,40 @@ function parseArgs(argv) {
   return options;
 }
 
-function requireValue(option, value) {
+export function requireValue(option, value) {
   if (!value || value.startsWith('--')) {
     throw new Error(`${option} requires a value`);
   }
   return value;
 }
 
-function splitTags(value) {
+export function splitTags(value) {
   return value
     .split(',')
     .map(normalizeTag)
     .filter(Boolean);
 }
 
-function normalizeTag(tag) {
+export function normalizeTag(tag) {
   return typeof tag === 'string' ? tag.trim() : '';
 }
 
-function normalizeTags(tags) {
+export function normalizeTags(tags) {
   if (!Array.isArray(tags)) return [];
   return Array.from(new Set(tags.map(normalizeTag).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ja'));
 }
 
-function readJson(filePath, fallback) {
+export function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function writeJson(filePath, value) {
+export function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function resolveVideosDir(explicitVideosDir) {
+export function resolveVideosDir(explicitVideosDir) {
   if (explicitVideosDir) return explicitVideosDir;
 
   const configPath = path.join(process.cwd(), 'config.json');
@@ -121,7 +122,7 @@ function resolveVideosDir(explicitVideosDir) {
   return path.resolve(process.cwd(), 'videos');
 }
 
-function decodeTime(id) {
+export function decodeTime(id) {
   if (id.length !== 26) return 0;
   try {
     return id
@@ -137,7 +138,7 @@ function decodeTime(id) {
   }
 }
 
-function createdAtFromVideo(filenameId, meta, fullPath) {
+export function createdAtFromVideo(filenameId, meta, fullPath) {
   let timestamp = 0;
   if (meta?.task_id?.startsWith('task_')) {
     timestamp = decodeTime(meta.task_id.replace('task_', ''));
@@ -151,7 +152,7 @@ function createdAtFromVideo(filenameId, meta, fullPath) {
   return new Date(timestamp).toISOString();
 }
 
-function scanVideos(videosDir) {
+export function scanVideos(videosDir) {
   const absoluteVideosDir = path.resolve(videosDir);
   const thumbnailsDir = path.join(absoluteVideosDir, '_thumbnails');
   const videos = [];
@@ -219,7 +220,7 @@ function scanVideos(videosDir) {
   return videos.sort(compareVideos);
 }
 
-function compareVideos(a, b) {
+export function compareVideos(a, b) {
   const aTime = Date.parse(a.createdAt);
   const bTime = Date.parse(b.createdAt);
   if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
@@ -227,18 +228,18 @@ function compareVideos(a, b) {
   return a.localKey.localeCompare(b.localKey);
 }
 
-function readTags(tagsPath) {
+export function readTags(tagsPath) {
   const parsed = readJson(tagsPath, { videos: {} });
   return parsed && typeof parsed.videos === 'object' && parsed.videos !== null ? parsed.videos : {};
 }
 
-function readManifest(manifestPath) {
+export function readManifest(manifestPath) {
   const parsed = readJson(manifestPath, { version: 1, videos: {} });
   const videos = parsed && typeof parsed.videos === 'object' && parsed.videos !== null ? parsed.videos : {};
   return { version: 1, videos };
 }
 
-function ensureManifestEntry(manifest, video) {
+export function ensureManifestEntry(manifest, video) {
   if (!manifest.videos[video.localKey]) {
     const id = crypto.randomUUID();
     manifest.videos[video.localKey] = {
@@ -250,18 +251,18 @@ function ensureManifestEntry(manifest, video) {
   return manifest.videos[video.localKey];
 }
 
-function joinUrl(baseUrl, objectKey) {
+export function joinUrl(baseUrl, objectKey) {
   return `${baseUrl.replace(/\/+$/, '')}/${objectKey.replace(/^\/+/, '')}`;
 }
 
-function validateOptions(options) {
+export function validateOptions(options) {
   if (options.help) return;
   if (!options.publicBaseUrl) throw new Error('--public-base-url is required');
   if (options.includeTags.length === 0) throw new Error('--include-tag is required to avoid accidental full export');
   if (!/^https:\/\//.test(options.publicBaseUrl)) throw new Error('--public-base-url must start with https://');
 }
 
-function validateExportedVideo(video) {
+export function validateExportedVideo(video) {
   const required = ['id', 'videoUrl', 'thumbnailUrl', 'prompt', 'tags', 'createdAt'];
   for (const field of required) {
     if (!(field in video)) throw new Error(`Exported video is missing ${field}: ${video.id || '(unknown)'}`);
@@ -272,7 +273,7 @@ function validateExportedVideo(video) {
   if (!Array.isArray(video.tags)) throw new Error(`tags must be an array: ${video.id}`);
 }
 
-function buildExport({ sourceVideos, tagsByFilename, manifest, options }) {
+export function buildExport({ sourceVideos, tagsByFilename, manifest, options }) {
   const includeTagSet = new Set(options.includeTags);
   const privateTagSet = new Set(options.privateTags);
   const exported = [];
@@ -315,7 +316,7 @@ function buildExport({ sourceVideos, tagsByFilename, manifest, options }) {
   return { exported, missingThumbnails };
 }
 
-function main() {
+export function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     printUsage();
@@ -353,9 +354,11 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  }
 }

@@ -133,6 +133,22 @@ npm run export:gallery -- \
 - このコマンドは JSON を生成するだけで、動画ファイルやサムネイルを R2 へアップロードしません。
 - 確認だけ行う場合は `--dry-run` を付けます。
 
+R2 へアップロードする前に、公開 ID のファイル名へ揃えた一時ディレクトリを作成できます。
+
+```bash
+npm run prepare:gallery-upload -- \
+  --public-base-url https://cdn.example.com/sora \
+  --include-tag public \
+  --out /private/tmp/sora-gallery-upload
+```
+
+作成後は `rclone` で `videos/` と `thumbnails/` を R2 にコピーします。
+
+```bash
+rclone copy /private/tmp/sora-gallery-upload/videos r2:sora-gallery-media/videos
+rclone copy /private/tmp/sora-gallery-upload/thumbnails r2:sora-gallery-media/thumbnails
+```
+
 ## 補足
 @hio1345は作者のSora2アカウント名でした
 
