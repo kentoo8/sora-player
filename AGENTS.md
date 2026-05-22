@@ -9,7 +9,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 機能の変更をした際は、必ず`README.md`をチェックし、同期すること。
 - AI は変更作業が完了したら、確認を待たずに `git add` と `git commit` まで実行してよい。
 - 直後に訂正があった場合は、必要に応じて `git commit --amend` で対応してよい。
-- `gcm` は `git commit --no-verify -m` のエイリアスとして扱うこと。
 - `git push` はどのような場合であっても絶対に行わないこと。
 - ブラウザ上の操作確認は原則ユーザーが担当する。AIは実装、静的確認、`npm run build` などのコマンド確認を担当し、必要な確認手順をチャット上に提示する。
 
