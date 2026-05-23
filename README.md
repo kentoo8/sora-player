@@ -172,6 +172,26 @@ rclone copy /private/tmp/sora-gallery-upload-prod/videos r2:sora-gallery-media/v
 rclone copy /private/tmp/sora-gallery-upload-prod/thumbnails r2:sora-gallery-media/thumbnails
 ```
 
+更新時は、前回公開済みの `sora-gallery/public/videos.json` と次回 export 結果を比較して、追加・削除・JSONのみ変更を分けた同期計画を作成できます。
+
+```bash
+npm run plan:gallery-sync -- \
+  --config data/gallery-export-config.json \
+  --previous ../sora-gallery/public/videos.json \
+  --out /private/tmp/sora-gallery-sync
+```
+
+出力:
+
+- `videos.json`: 次回公開する `public/videos.json`。
+- `upload-manifest.json`: R2 へ追加アップロードする動画。
+- `delete-manifest.json`: R2 から削除する動画。
+- `changed-metadata.json`: タグや prompt など JSON だけが変わった動画。
+- `unchanged.json`: 変更なしの動画。
+- `videos/`, `thumbnails/`: 追加アップロード対象だけをコピーしたディレクトリ。
+
+`upload-manifest.json` が空でなければ `videos/` と `thumbnails/` を R2 にアップロードします。`delete-manifest.json` が空でなければ、対象 object を R2 から削除します。`changed-metadata.json` だけが変わっている場合は R2 を触らず、`videos.json` の更新と `sora-gallery` 側の検証・デプロイだけを行います。
+
 ## 補足
 @hio1345は作者のSora2アカウント名でした
 

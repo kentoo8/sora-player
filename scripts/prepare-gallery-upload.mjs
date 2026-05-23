@@ -39,7 +39,7 @@ Options:
 `);
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv, extraOptions = {}) {
   const defaultConfig = path.resolve(process.cwd(), 'data/gallery-export-config.json');
   const options = {
     config: fs.existsSync(defaultConfig) ? defaultConfig : '',
@@ -108,6 +108,10 @@ function parseArgs(argv) {
       options.publicBaseUrl = requireValue(arg, next);
       cliSpecified.publicBaseUrl = true;
       index += 1;
+    } else if (extraOptions.allowUnknown) {
+      if (next && !next.startsWith('--')) {
+        index += 1;
+      }
     } else {
       throw new Error(`Unknown option: ${arg}`);
     }
@@ -122,27 +126,27 @@ function parseArgs(argv) {
   return options;
 }
 
-function requireValue(option, value) {
+export function requireValue(option, value) {
   if (!value || value.startsWith('--')) {
     throw new Error(`${option} requires a value`);
   }
   return value;
 }
 
-function validateOptions(options) {
+export function validateOptions(options) {
   if (options.help) return;
   if (!options.out) throw new Error('--out is required');
   if (options.includeTags.length === 0) throw new Error('--include-tag is required to avoid accidental full export');
   if (!/^https:\/\//.test(options.publicBaseUrl)) throw new Error('--public-base-url must start with https://');
 }
 
-function findSourceById(sourceVideos, manifest, publicId) {
+export function findSourceById(sourceVideos, manifest, publicId) {
   const entry = Object.entries(manifest.videos).find(([, value]) => value.id === publicId);
   if (!entry) return undefined;
   return sourceVideos.find((video) => video.localKey === entry[0]);
 }
 
-function assertWebpThumbnail(source) {
+export function assertWebpThumbnail(source) {
   if (!source.thumbnailPath) {
     throw new Error(`Missing thumbnail: ${source.localKey}`);
   }
@@ -151,7 +155,7 @@ function assertWebpThumbnail(source) {
   }
 }
 
-function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
+export function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
   const videosOutDir = path.join(outDir, 'videos');
   const thumbnailsOutDir = path.join(outDir, 'thumbnails');
   assertEmptyDirectory(videosOutDir);
@@ -183,7 +187,7 @@ function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
   return copied;
 }
 
-function assertEmptyDirectory(dirPath) {
+export function assertEmptyDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) return;
 
   const entries = fs.readdirSync(dirPath);
