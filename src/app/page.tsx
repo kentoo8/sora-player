@@ -29,6 +29,11 @@ interface NavigationSnapshot {
 const thumbnailCache = new Map<string, string>();
 const cameoPattern = /@[A-Za-z0-9_]+(?:[.-][A-Za-z0-9_]+)*/g;
 const UNTAGGED_FILTER = '__untagged__';
+const META_CONTROL_TAGS = ['meta:public', 'meta:no-public'];
+const CONFLICTING_TAGS: Record<string, string[]> = {
+  'meta:public': ['meta:no-public'],
+  'meta:no-public': ['meta:public'],
+};
 
 function sortVideosByTimestamp(videoList: Video[], sortOrder: SortOrder) {
   return [...videoList].sort((a, b) => {
@@ -660,13 +665,21 @@ export default function Home() {
     if (selectedVideos.length === 0) return;
 
     const newTags = tagInput.split(',').map(tag => tag.trim()).filter(Boolean);
-    const commonTagsToRemove = selectedVideoCount === 1 ? new Set<string>() : removedCommonTags;
+    const conflictingTagsToRemove = new Set<string>();
+    for (const tag of [...pendingTags, ...newTags]) {
+      for (const conflictingTag of CONFLICTING_TAGS[tag] || []) {
+        conflictingTagsToRemove.add(conflictingTag);
+      }
+    }
+    const commonTagsToRemove = selectedVideoCount === 1
+      ? conflictingTagsToRemove
+      : new Set([...removedCommonTags, ...conflictingTagsToRemove]);
     const tagsToAdd = new Set([
       ...Array.from(pendingTags).filter(tag => !commonTagsToRemove.has(tag)),
-      ...newTags
+      ...newTags.filter(tag => !commonTagsToRemove.has(tag))
     ]);
     const finalTags = selectedVideoCount === 1
-      ? Array.from(new Set([...pendingTags, ...newTags]))
+      ? Array.from(new Set([...pendingTags, ...newTags])).filter(tag => !commonTagsToRemove.has(tag))
       : [];
 
     if (tagsToAdd.size === 0 && commonTagsToRemove.size === 0 && selectedVideoCount > 1) return;
@@ -1792,8 +1805,8 @@ export default function Home() {
                       // 1件: 全既存タグ + pendingTags内の新規タグを表示、複数: 既存タグのみ
                       const existingTagNames = tagCounts.map(([tag]) => tag);
                       const allTagNames = isSingle
-                        ? Array.from(new Set([...existingTagNames, ...pendingTags]))
-                        : existingTagNames;
+                        ? Array.from(new Set([...META_CONTROL_TAGS, ...existingTagNames, ...pendingTags]))
+                        : Array.from(new Set([...META_CONTROL_TAGS, ...existingTagNames]));
                       const tagInputQuery = isTagComposing ? '' : tagInput.split(',').pop()?.trim().toLowerCase() || '';
                       const visibleTagNames = tagInputQuery
                         ? allTagNames.filter(tag => tag.toLowerCase().includes(tagInputQuery))
@@ -1815,6 +1828,9 @@ export default function Home() {
                                       if (next.has(tag)) {
                                         next.delete(tag);
                                       } else {
+                                        for (const conflictingTag of CONFLICTING_TAGS[tag] || []) {
+                                          next.delete(conflictingTag);
+                                        }
                                         next.add(tag);
                                       }
                                       return next;
@@ -1834,6 +1850,9 @@ export default function Home() {
                                     } else {
                                       setPendingTags(prev => {
                                         const next = new Set(prev);
+                                        for (const conflictingTag of CONFLICTING_TAGS[tag] || []) {
+                                          next.delete(conflictingTag);
+                                        }
                                         next.add(tag);
                                         return next;
                                       });

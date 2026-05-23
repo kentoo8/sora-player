@@ -17,6 +17,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `~/src/sora-gallery` から作業している Codex セッションでは、この `sora-player` リポジトリは writable root 外になることがある。
 - `data/gallery-export-manifest.json` の生成・更新など、`sora-player` 側にファイルを書き込むコマンドは、最初から権限付きで実行する。
 - 例: `npm run prepare:gallery-upload` で manifest を作る場合、通常実行で失敗させてから再実行しない。
+- `npx tsc --noEmit` など、`tsconfig.tsbuildinfo` を更新する可能性がある検証コマンドも、writable root 外から実行する場合は最初から権限付きで実行する。
 - 読み取り、`git status`、差分確認などは通常実行でよい。
 
 
