@@ -49,7 +49,7 @@ function parseArgs(argv) {
     excludeTags: [],
     privateTags: ['public', 'private', 'internal'],
     privateTagPrefixes: ['meta:'],
-    allowedMetaTags: ['meta:no-public'],
+    allowedMetaTags: ['meta:public', 'meta:no-public'],
     publicBaseUrl: 'https://example.com',
     dryRun: false,
   };
@@ -118,7 +118,7 @@ function parseArgs(argv) {
   options.excludeTags = Array.from(new Set(['meta:no-public', ...options.excludeTags].map(normalizeTag))).filter(Boolean);
   options.privateTags = Array.from(new Set(options.privateTags)).filter(Boolean);
   options.privateTagPrefixes = Array.from(new Set(options.privateTagPrefixes.map(normalizeTagPrefix))).filter(Boolean);
-  options.allowedMetaTags = Array.from(new Set(['meta:no-public', ...options.allowedMetaTags].map(normalizeTag))).filter(Boolean);
+  options.allowedMetaTags = Array.from(new Set(['meta:public', 'meta:no-public', ...options.allowedMetaTags].map(normalizeTag))).filter(Boolean);
   return options;
 }
 

@@ -124,16 +124,18 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
 {
   "version": 1,
   "publicBaseUrl": "https://cdn.example.com/sora",
-  "includeTags": ["public"],
+  "includeTags": ["public", "meta:public"],
   "excludeTags": ["meta:no-public", "exclude-sample-a", "exclude-sample-b"],
   "privateTagPrefixes": ["meta:"],
-  "allowedMetaTags": ["meta:no-public"]
+  "allowedMetaTags": ["meta:public", "meta:no-public"]
 }
 ```
 
 - `includeTags` のいずれかが付いた動画だけが公開候補になります。
 - `excludeTags` のいずれかが付いた動画は、公開候補であっても除外されます。
+- `meta:public` は個別動画を公開候補に入れるためのローカル制御タグです。
 - `meta:no-public` は個別動画を公開対象から外すためのローカル制御タグです。
+- `meta:public` と `meta:no-public` が同じ動画に付いている場合、意図が矛盾しているため export は失敗します。
 - `meta:` は予約 prefix です。公開候補に `allowedMetaTags` 以外の `meta:*` タグが付いている場合、export は失敗します。
 - `meta:*` タグは `public/videos.json` には出力されません。
 

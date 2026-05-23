@@ -11,8 +11,9 @@ const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const ENCODING_LEN = ENCODING.length;
 const DEFAULT_PRIVATE_TAGS = ['public', 'private', 'internal'];
 const DEFAULT_PRIVATE_TAG_PREFIXES = ['meta:'];
-const DEFAULT_ALLOWED_META_TAGS = ['meta:no-public'];
+const DEFAULT_ALLOWED_META_TAGS = ['meta:public', 'meta:no-public'];
 const DEFAULT_EXCLUDE_TAGS = ['meta:no-public'];
+const CONFLICTING_META_TAG_GROUPS = [['meta:public', 'meta:no-public']];
 
 export function printUsage() {
   console.log(`Usage:
@@ -374,6 +375,7 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
     candidates += 1;
 
     assertAllowedMetaTags(source, localTags, options);
+    assertNoConflictingMetaTags(source, localTags);
     const matchedExcludeTags = localTags.filter((tag) => excludeTagSet.has(tag));
     if (matchedExcludeTags.length > 0) {
       excluded.push({ localKey: source.localKey, tags: matchedExcludeTags });
@@ -422,6 +424,16 @@ export function assertAllowedMetaTags(source, localTags, options) {
   const unknown = localTags.filter((tag) => isPrivatePrefixTag(tag, options.privateTagPrefixes) && !allowed.has(tag));
   if (unknown.length > 0) {
     throw new Error(`Unknown meta tag(s) on ${source.localKey}: ${unknown.join(', ')}`);
+  }
+}
+
+export function assertNoConflictingMetaTags(source, localTags) {
+  const tagSet = new Set(localTags);
+  for (const group of CONFLICTING_META_TAG_GROUPS) {
+    const found = group.filter((tag) => tagSet.has(tag));
+    if (found.length > 1) {
+      throw new Error(`Conflicting meta tags on ${source.localKey}: ${found.join(', ')}`);
+    }
   }
 }
 

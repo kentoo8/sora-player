@@ -1,8 +1,8 @@
 {
   "version": 1,
   "publicBaseUrl": "https://cdn.example.com/sora",
-  "includeTags": ["public"],
+  "includeTags": ["public", "meta:public"],
   "excludeTags": ["meta:no-public", "exclude-sample-a", "exclude-sample-b"],
   "privateTagPrefixes": ["meta:"],
-  "allowedMetaTags": ["meta:no-public"]
+  "allowedMetaTags": ["meta:public", "meta:no-public"]
 }
