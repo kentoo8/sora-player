@@ -52,3 +52,4 @@ next-env.d.ts
 # local app data
 /data/*.json
 !/data/.gitkeep
+!/data/gallery-export-config.example.json
