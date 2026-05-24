@@ -8,6 +8,7 @@ import {
   buildExport,
   countExcludedTags,
   formatTagCounts,
+  formatMissingSourceVideos,
   readManifest,
   readSourceVideos,
   readTags,
@@ -178,12 +179,20 @@ export function main() {
   const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, candidates, excluded, orphanTagEntries } = buildExport({
+  const { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = buildExport({
     sourceVideos,
     tagsByFilename,
     manifest,
     options,
   });
+
+  if (missingSourceVideos.length > 0) {
+    throw new Error(
+      `公開候補のタグが付いていますが、動画 manifest に存在しない動画があります: ${missingSourceVideos.length}\n` +
+        `${formatMissingSourceVideos(missingSourceVideos)}\n` +
+        '先に npm run generate:manifest を再実行し、動画ファイル欠落または孤立タグを確認してください。',
+    );
+  }
 
   if (missingThumbnails.length > 0) {
     const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');

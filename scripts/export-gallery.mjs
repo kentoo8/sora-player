@@ -355,11 +355,23 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
   const privateTagSet = new Set(options.privateTags);
   const exported = [];
   const missingThumbnails = [];
+  const missingSourceVideos = [];
   const excluded = [];
   const sourceIds = new Set(sourceVideos.map((video) => video.localKey));
   const orphanTagEntries = Object.keys(tagsByFilename)
     .filter((id) => id.startsWith('gen_') && !sourceIds.has(id))
     .sort((a, b) => a.localeCompare(b, 'en'));
+  for (const id of orphanTagEntries) {
+    const localTags = normalizeTags(tagsByFilename[id]);
+    if (!localTags.some((tag) => includeTagSet.has(tag))) continue;
+    const matchedExcludeTags = localTags.filter((tag) => excludeTagSet.has(tag));
+    if (matchedExcludeTags.length > 0) continue;
+    missingSourceVideos.push({
+      id,
+      tags: localTags,
+      reason: 'PUBLIC_CANDIDATE_NOT_FOUND_IN_VIDEO_MANIFEST',
+    });
+  }
   let candidates = 0;
 
   for (const source of sourceVideos) {
@@ -409,7 +421,14 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
     return a.id.localeCompare(b.id);
   });
 
-  return { exported, missingThumbnails, candidates, excluded, orphanTagEntries };
+  return { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries };
+}
+
+export function formatMissingSourceVideos(missingSourceVideos) {
+  return missingSourceVideos
+    .slice(0, 10)
+    .map((item) => `- ${item.id} tags=${item.tags.join(', ')}`)
+    .join('\n');
 }
 
 export function isPrivatePrefixTag(tag, prefixes) {
@@ -451,7 +470,15 @@ export function main() {
   const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, candidates, excluded, orphanTagEntries } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
+  const { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
+
+  if (missingSourceVideos.length > 0) {
+    throw new Error(
+      `公開候補のタグが付いていますが、動画 manifest に存在しない動画があります: ${missingSourceVideos.length}\n` +
+        `${formatMissingSourceVideos(missingSourceVideos)}\n` +
+        '先に npm run generate:manifest を再実行し、動画ファイル欠落または孤立タグを確認してください。',
+    );
+  }
 
   if (missingThumbnails.length > 0) {
     const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
