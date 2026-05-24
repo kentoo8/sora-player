@@ -3,6 +3,7 @@ import path from 'node:path';
 
 export const VIDEO_MANIFEST_VERSION = 1;
 export const DEFAULT_DUPLICATE_STRATEGY = 'manual';
+export const DUPLICATE_STRATEGIES = new Set(['manual', 'prefer-oldest', 'prefer-newest']);
 export const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const ENCODING_LEN = ENCODING.length;
 export const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails', '_metadata', '_reports', '_maintenance']);
@@ -43,6 +44,14 @@ export function resolveArchivePath({ videosDir, value, defaultRelative }) {
   return path.resolve(videosDir, pathValue);
 }
 
+export function normalizeDuplicateStrategy(strategy = DEFAULT_DUPLICATE_STRATEGY) {
+  const normalized = typeof strategy === 'string' && strategy.trim() ? strategy.trim() : DEFAULT_DUPLICATE_STRATEGY;
+  if (!DUPLICATE_STRATEGIES.has(normalized)) {
+    throw new Error(`duplicateStrategy が不正です: ${normalized}`);
+  }
+  return normalized;
+}
+
 export function resolveLibraryOptions({
   cwd = process.cwd(),
   videosDir,
@@ -64,7 +73,7 @@ export function resolveLibraryOptions({
       value: reportPath || config.reportPath,
       defaultRelative: '_reports/scan-report.json',
     }),
-    duplicateStrategy: duplicateStrategy || config.duplicateStrategy || DEFAULT_DUPLICATE_STRATEGY,
+    duplicateStrategy: normalizeDuplicateStrategy(duplicateStrategy || config.duplicateStrategy || DEFAULT_DUPLICATE_STRATEGY),
   };
 }
 
@@ -207,6 +216,7 @@ function resolveDuplicates(groups, strategy, report) {
 
 export function scanVideoLibrary({ videosDir, duplicateStrategy = DEFAULT_DUPLICATE_STRATEGY } = {}) {
   const absoluteVideosDir = path.resolve(videosDir);
+  const normalizedDuplicateStrategy = normalizeDuplicateStrategy(duplicateStrategy);
   const report = createReport(absoluteVideosDir);
   const groups = new Map();
   const generationFolders = [];
@@ -313,7 +323,7 @@ export function scanVideoLibrary({ videosDir, duplicateStrategy = DEFAULT_DUPLIC
     }
   }
 
-  const videos = resolveDuplicates(groups, duplicateStrategy, report).sort(compareVideos);
+  const videos = resolveDuplicates(groups, normalizedDuplicateStrategy, report).sort(compareVideos);
   return { videos, report };
 }
 
@@ -326,7 +336,10 @@ export function compareVideos(a, b) {
 
 export function buildVideoManifest({ videosDir, duplicateStrategy } = {}) {
   const absoluteVideosDir = path.resolve(videosDir);
-  const { videos, report } = scanVideoLibrary({ videosDir: absoluteVideosDir, duplicateStrategy });
+  const { videos, report } = scanVideoLibrary({
+    videosDir: absoluteVideosDir,
+    duplicateStrategy: normalizeDuplicateStrategy(duplicateStrategy),
+  });
   return {
     manifest: {
       version: VIDEO_MANIFEST_VERSION,

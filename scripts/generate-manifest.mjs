@@ -5,6 +5,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import {
   buildVideoManifest,
+  normalizeDuplicateStrategy,
   printReportSummary,
   resolveLibraryOptions,
   writeJson,
@@ -57,9 +58,7 @@ function parseArgs(argv) {
 function validateOptions(options) {
   if (options.help) return;
   if (!fs.existsSync(options.videosDir)) throw new Error(`動画フォルダが見つかりません: ${options.videosDir}`);
-  if (!['manual', 'prefer-oldest', 'prefer-newest'].includes(options.duplicateStrategy)) {
-    throw new Error(`duplicateStrategy が不正です: ${options.duplicateStrategy}`);
-  }
+  normalizeDuplicateStrategy(options.duplicateStrategy);
 }
 
 export function main() {
@@ -100,7 +99,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     main();
   } catch (error) {
-    if (!(error instanceof Error)) console.error(error);
+    if (error instanceof Error) {
+      if (!error.report) console.error(error.message);
+    } else {
+      console.error(error);
+    }
     process.exitCode = 1;
   }
 }
