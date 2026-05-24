@@ -9,9 +9,10 @@ import {
   countExcludedTags,
   formatTagCounts,
   readManifest,
+  readSourceVideos,
   readTags,
   resolveVideosDir,
-  scanVideos,
+  resolveSourceManifest,
   writeJson,
 } from './export-gallery.mjs';
 import {
@@ -29,6 +30,7 @@ Options:
   --out <path>                  Required. Sync plan output directory.
   --config <path>               Export config path. Default: data/gallery-export-config.json if it exists.
   --manifest <path>             Public ID manifest path. Default: data/gallery-export-manifest.json
+  --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
   --tags <path>                 Local tags file path. Default: data/tags.json
   --videos-dir <path>           Source videos directory. Default: config.json videosDir, VIDEOS_DIR, or ./videos
   --dry-run                     Print summary without copying files or writing manifest.
@@ -172,10 +174,11 @@ export function main() {
   }
 
   const previous = readVideosJson(options.previous);
-  const sourceVideos = scanVideos(videosDir);
+  const sourceManifest = resolveSourceManifest(options);
+  const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, candidates, excluded } = buildExport({
+  const { exported, missingThumbnails, candidates, excluded, orphanTagEntries } = buildExport({
     sourceVideos,
     tagsByFilename,
     manifest,
@@ -183,7 +186,8 @@ export function main() {
   });
 
   if (missingThumbnails.length > 0) {
-    throw new Error(`Cannot plan sync because ${missingThumbnails.length} thumbnail(s) are missing`);
+    const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
+    throw new Error(`公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n${examples}`);
   }
 
   const plan = buildSyncPlan({ previous, next: exported });
@@ -212,6 +216,10 @@ export function main() {
   console.log(`Unchanged: ${plan.unchanged.length}`);
   console.log(`Output: ${options.out}`);
   console.log(`Manifest: ${options.manifest}`);
+  console.log(`Video manifest: ${sourceManifest}`);
+  if (orphanTagEntries.length > 0) {
+    console.log(`manifest に存在しないタグ項目: ${orphanTagEntries.length}`);
+  }
   if (excluded.length > 0) {
     console.log(`Excluded tags: ${formatTagCounts(countExcludedTags(excluded))}`);
   }

@@ -5,8 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import {
+  readVideoManifestWithExistingFiles,
+  resolveLibraryOptions,
+} from '../src/lib/video-library.mjs';
 
-const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails']);
 const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const ENCODING_LEN = ENCODING.length;
 const DEFAULT_PRIVATE_TAGS = ['public', 'private', 'internal'];
@@ -26,6 +29,7 @@ Options:
   --exclude-tag <tag>           Videos with this local tag are excluded. Can be repeated.
   --out <path>                  Output videos.json path. Default: ../sora-gallery/public/videos.json
   --manifest <path>             Public ID manifest path. Default: data/gallery-export-manifest.json
+  --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
   --tags <path>                 Local tags file path. Default: data/tags.json
   --videos-dir <path>           Source videos directory. Default: config.json videosDir, VIDEOS_DIR, or ./videos
   --private-tags <a,b>          Tags removed from public output. Default: public,private,internal
@@ -42,6 +46,7 @@ export function parseArgs(argv) {
     config: fs.existsSync(defaultConfig) ? defaultConfig : '',
     out: path.resolve(process.cwd(), '../sora-gallery/public/videos.json'),
     manifest: path.resolve(process.cwd(), 'data/gallery-export-manifest.json'),
+    sourceManifest: '',
     tags: path.resolve(process.cwd(), 'data/tags.json'),
     includeTags: [],
     excludeTags: [],
@@ -86,6 +91,9 @@ export function parseArgs(argv) {
       index += 1;
     } else if (arg === '--manifest') {
       options.manifest = path.resolve(process.cwd(), requireValue(arg, next));
+      index += 1;
+    } else if (arg === '--source-manifest') {
+      options.sourceManifest = requireValue(arg, next);
       index += 1;
     } else if (arg === '--tags') {
       options.tags = path.resolve(process.cwd(), requireValue(arg, next));
@@ -204,6 +212,15 @@ export function resolveVideosDir(explicitVideosDir) {
   return path.resolve(process.cwd(), 'videos');
 }
 
+export function resolveSourceManifest(options) {
+  const libraryOptions = resolveLibraryOptions({
+    cwd: process.cwd(),
+    videosDir: options.videosDir,
+    manifestPath: options.sourceManifest,
+  });
+  return libraryOptions.manifestPath;
+}
+
 export function decodeTime(id) {
   if (id.length !== 26) return 0;
   try {
@@ -234,72 +251,23 @@ export function createdAtFromVideo(filenameId, meta, fullPath) {
   return new Date(timestamp).toISOString();
 }
 
-export function scanVideos(videosDir) {
-  const absoluteVideosDir = path.resolve(videosDir);
-  const thumbnailsDir = path.join(absoluteVideosDir, '_thumbnails');
-  const videos = [];
-  const seenPaths = new Set();
-  const seenFilenames = new Set();
-
-  function scanDir(dir, inheritedMetadataMap) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    let metadataMap = inheritedMetadataMap;
-    const metaPath = path.join(dir, 'generations.json');
-    if (fs.existsSync(metaPath)) {
-      const metaJson = readJson(metaPath, []);
-      if (Array.isArray(metaJson)) {
-        metadataMap = new Map(metaJson.filter((item) => item?.id).map((item) => [item.id, item]));
-      }
-    }
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      let realPath = '';
-      try {
-        realPath = fs.realpathSync(fullPath);
-      } catch {
-        continue;
-      }
-      if (seenPaths.has(realPath)) continue;
-
-      if (entry.isDirectory()) {
-        if (IGNORED_SCAN_DIRECTORIES.has(entry.name)) continue;
-        seenPaths.add(realPath);
-        scanDir(fullPath, metadataMap);
-        continue;
-      }
-
-      if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.mp4')) continue;
-
-      const filenameId = entry.name.replace(/\.mp4$/i, '');
-      const meta = metadataMap?.get(filenameId);
-      if (metadataMap && !meta) continue;
-      if (seenFilenames.has(filenameId)) continue;
-
-      const relativePath = path.relative(absoluteVideosDir, fullPath).split(path.sep).join('/');
-      const localId = relativePath.replace(/\.mp4$/i, '');
-      const thumbnailKey = localId.split('/').join('@@');
-      const webpThumbnail = path.join(thumbnailsDir, `${thumbnailKey}.webp`);
-      const jpgThumbnail = path.join(thumbnailsDir, `${thumbnailKey}.jpg`);
-      const thumbnailPath = fs.existsSync(webpThumbnail) ? webpThumbnail : fs.existsSync(jpgThumbnail) ? jpgThumbnail : '';
-
-      seenPaths.add(realPath);
-      seenFilenames.add(filenameId);
-      videos.push({
-        localKey: localId,
-        filename: filenameId,
-        fullPath,
-        relativePath,
-        thumbnailPath,
-        prompt: typeof meta?.prompt === 'string' ? meta.prompt : '',
-        description: typeof meta?.description === 'string' ? meta.description : '',
-        createdAt: createdAtFromVideo(filenameId, meta, fullPath),
-      });
-    }
+export function readSourceVideos({ videosDir, sourceManifest }) {
+  if (!fs.existsSync(sourceManifest)) {
+    throw new Error(`動画 manifest が見つかりません。先に npm run generate:manifest を実行してください: ${sourceManifest}`);
   }
-
-  scanDir(absoluteVideosDir);
-  return videos.sort(compareVideos);
+  const result = readVideoManifestWithExistingFiles(sourceManifest, videosDir);
+  return result.videos.map((video) => ({
+    localKey: video.id,
+    filename: video.id,
+    id: video.id,
+    fullPath: video.fullPath,
+    relativePath: video.videoPath,
+    videoPath: video.videoPath,
+    thumbnailPath: fs.existsSync(video.absoluteThumbnailPath) ? video.absoluteThumbnailPath : '',
+    prompt: typeof video.prompt === 'string' ? video.prompt : '',
+    description: typeof video.description === 'string' ? video.description : '',
+    createdAt: video.createdAt,
+  })).sort(compareVideos);
 }
 
 export function compareVideos(a, b) {
@@ -318,7 +286,28 @@ export function readTags(tagsPath) {
 export function readManifest(manifestPath) {
   const parsed = readJson(manifestPath, { version: 1, videos: {} });
   const videos = parsed && typeof parsed.videos === 'object' && parsed.videos !== null ? parsed.videos : {};
-  return { version: 1, videos };
+  return { version: 1, videos: migrateGalleryManifestVideos(videos) };
+}
+
+export function migrateGalleryManifestVideos(videos) {
+  const migrated = {};
+  for (const [key, value] of Object.entries(videos)) {
+    const normalizedKey = normalizeGalleryManifestKey(key);
+    if (!normalizedKey) continue;
+    if (migrated[normalizedKey] && migrated[normalizedKey].id !== value.id) {
+      throw new Error(`gallery export manifest の移行で ID が衝突しました: ${normalizedKey}`);
+    }
+    migrated[normalizedKey] = value;
+  }
+  return migrated;
+}
+
+export function normalizeGalleryManifestKey(key) {
+  if (typeof key !== 'string') return '';
+  if (key.startsWith('gen_')) return key.replace(/\.mp4$/i, '');
+  const normalized = key.split('@@').join('/');
+  const stem = path.basename(normalized).replace(/\.[^.]+$/i, '');
+  return stem.startsWith('gen_') ? stem : '';
 }
 
 export function ensureManifestEntry(manifest, video) {
@@ -367,6 +356,10 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
   const exported = [];
   const missingThumbnails = [];
   const excluded = [];
+  const sourceIds = new Set(sourceVideos.map((video) => video.localKey));
+  const orphanTagEntries = Object.keys(tagsByFilename)
+    .filter((id) => id.startsWith('gen_') && !sourceIds.has(id))
+    .sort((a, b) => a.localeCompare(b, 'en'));
   let candidates = 0;
 
   for (const source of sourceVideos) {
@@ -397,7 +390,11 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
       video.description = source.description;
     }
     if (!source.thumbnailPath) {
-      missingThumbnails.push(source.localKey);
+      missingThumbnails.push({
+        id: source.localKey,
+        videoPath: source.videoPath || source.relativePath,
+        playerUrl: `http://localhost:3000/video/${encodeURIComponent(source.localKey)}`,
+      });
     }
 
     validateExportedVideo(video);
@@ -412,7 +409,7 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
     return a.id.localeCompare(b.id);
   });
 
-  return { exported, missingThumbnails, candidates, excluded };
+  return { exported, missingThumbnails, candidates, excluded, orphanTagEntries };
 }
 
 export function isPrivatePrefixTag(tag, prefixes) {
@@ -450,10 +447,16 @@ export function main() {
     throw new Error(`Videos directory does not exist: ${videosDir}`);
   }
 
-  const sourceVideos = scanVideos(videosDir);
+  const sourceManifest = resolveSourceManifest(options);
+  const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, candidates, excluded } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
+  const { exported, missingThumbnails, candidates, excluded, orphanTagEntries } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
+
+  if (missingThumbnails.length > 0) {
+    const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
+    throw new Error(`公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n${examples}`);
+  }
 
   if (!options.dryRun) {
     writeJson(options.manifest, manifest);
@@ -466,18 +469,13 @@ export function main() {
   console.log(`Exported: ${exported.length}`);
   console.log(`Output: ${options.out}`);
   console.log(`Manifest: ${options.manifest}`);
+  console.log(`Video manifest: ${sourceManifest}`);
+  if (orphanTagEntries.length > 0) {
+    console.log(`manifest に存在しないタグ項目: ${orphanTagEntries.length}`);
+  }
   if (excluded.length > 0) {
     const counts = countExcludedTags(excluded);
     console.log(`Excluded tags: ${formatTagCounts(counts)}`);
-  }
-  if (missingThumbnails.length > 0) {
-    console.warn(`Missing local thumbnails: ${missingThumbnails.length}`);
-    for (const localKey of missingThumbnails.slice(0, 10)) {
-      console.warn(`- ${localKey}`);
-    }
-    if (missingThumbnails.length > 10) {
-      console.warn(`...and ${missingThumbnails.length - 10} more`);
-    }
   }
 }
 

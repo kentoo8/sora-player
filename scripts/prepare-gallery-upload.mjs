@@ -12,9 +12,10 @@ import {
   normalizeTag,
   normalizeTagPrefix,
   readManifest,
+  readSourceVideos,
   readTags,
   resolveVideosDir,
-  scanVideos,
+  resolveSourceManifest,
   writeJson,
 } from './export-gallery.mjs';
 
@@ -28,6 +29,7 @@ Options:
   --exclude-tag <tag>           Videos with this local tag are excluded. Can be repeated.
   --out <path>                  Required. Upload staging directory.
   --manifest <path>             Public ID manifest path. Default: data/gallery-export-manifest.json
+  --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
   --tags <path>                 Local tags file path. Default: data/tags.json
   --videos-dir <path>           Source videos directory. Default: config.json videosDir, VIDEOS_DIR, or ./videos
   --private-tags <a,b>          Tags removed from public output. Default: public,private,internal
@@ -85,6 +87,9 @@ export function parseArgs(argv, extraOptions = {}) {
       index += 1;
     } else if (arg === '--manifest') {
       options.manifest = path.resolve(process.cwd(), requireValue(arg, next));
+      index += 1;
+    } else if (arg === '--source-manifest') {
+      options.sourceManifest = requireValue(arg, next);
       index += 1;
     } else if (arg === '--tags') {
       options.tags = path.resolve(process.cwd(), requireValue(arg, next));
@@ -209,13 +214,15 @@ export function main() {
     throw new Error(`Videos directory does not exist: ${videosDir}`);
   }
 
-  const sourceVideos = scanVideos(videosDir);
+  const sourceManifest = resolveSourceManifest(options);
+  const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, candidates, excluded } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
+  const { exported, missingThumbnails, candidates, excluded, orphanTagEntries } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
 
   if (missingThumbnails.length > 0) {
-    throw new Error(`Cannot prepare upload because ${missingThumbnails.length} thumbnail(s) are missing`);
+    const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
+    throw new Error(`公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n${examples}`);
   }
 
   const copied = options.dryRun ? [] : copyPreparedFiles({ exported, sourceVideos, manifest, outDir: options.out });
@@ -231,6 +238,10 @@ export function main() {
   console.log(`Prepared: ${exported.length}`);
   console.log(`Output: ${options.out}`);
   console.log(`Manifest: ${options.manifest}`);
+  console.log(`Video manifest: ${sourceManifest}`);
+  if (orphanTagEntries.length > 0) {
+    console.log(`manifest に存在しないタグ項目: ${orphanTagEntries.length}`);
+  }
   if (excluded.length > 0) {
     console.log(`Excluded tags: ${formatTagCounts(countExcludedTags(excluded))}`);
   }
