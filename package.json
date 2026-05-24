@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
+    "generate:manifest": "node scripts/generate-manifest.mjs",
     "export:gallery": "node scripts/export-gallery.mjs",
     "prepare:gallery-upload": "node scripts/prepare-gallery-upload.mjs",
     "plan:gallery-sync": "node scripts/plan-gallery-sync.mjs",

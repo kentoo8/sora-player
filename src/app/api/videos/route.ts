@@ -2,243 +2,131 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails']);
+export const runtime = 'nodejs';
 
-// ULIDの最初の10文字からタイムスタンプをデコードする関数
-const ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const ENCODING_LEN = ENCODING.length;
+type LibraryModule = {
+  resolveLibraryOptions: (options?: { cwd?: string }) => {
+    videosDir: string;
+    manifestPath: string;
+    duplicateStrategy: string;
+  };
+  readVideoManifestWithExistingFiles: (manifestPath: string, videosDir?: string) => {
+    videos: LibraryVideo[];
+    report: unknown;
+    videosDir: string;
+  };
+  scanVideoLibrary: (options: { videosDir: string; duplicateStrategy: string }) => {
+    videos: LibraryVideo[];
+    report: unknown;
+  };
+  printReportSummary: (report: unknown) => void;
+};
 
-function decodeTime(id: string): number {
-  if (id.length !== 26) return 0;
-  try {
-    const time = id
-      .substring(0, 10)
-      .split("")
-      .reduce((carry, char) => {
-        const encodingIndex = ENCODING.indexOf(char.toUpperCase());
-        if (encodingIndex === -1) throw new Error("Invalid char");
-        return carry * ENCODING_LEN + encodingIndex;
-      }, 0);
-    return time;
-  } catch (e) {
-    return 0;
-  }
+type LibraryVideo = {
+  id: string;
+  filename?: string;
+  videoPath: string;
+  thumbnailPath?: string;
+  title?: string;
+  prompt?: string;
+  createdAt?: string;
+  fullPath?: string;
+};
+
+async function loadLibrary(): Promise<LibraryModule> {
+  return import('../../../lib/video-library.mjs') as unknown as Promise<LibraryModule>;
+}
+
+function encodeVideoUrl(videoPath: string) {
+  return `/videos/${videoPath.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function toTimestamp(createdAt?: string) {
+  if (!createdAt) return 0;
+  const time = Date.parse(createdAt);
+  return Number.isFinite(time) ? time : 0;
+}
+
+function toApiVideo(video: LibraryVideo, videosDir: string) {
+  const thumbnailPath = video.thumbnailPath || `_thumbnails/${video.id}.webp`;
+  const absoluteThumbnailPath = path.resolve(videosDir, thumbnailPath);
+  const thumbnail = fs.existsSync(absoluteThumbnailPath) ? encodeVideoUrl(thumbnailPath) : undefined;
+  return {
+    id: video.id,
+    filename: video.id,
+    videoPath: video.videoPath,
+    url: encodeVideoUrl(video.videoPath),
+    timestamp: toTimestamp(video.createdAt),
+    title: video.title || '',
+    prompt: video.prompt || '',
+    account: undefined,
+    thumbnail,
+  };
 }
 
 export async function GET() {
-  const configPath = path.join(process.cwd(), 'config.json');
-  let config: any = {};
-  if (fs.existsSync(configPath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch (e) {}
-  }
-
-  let videosDir = config.videosDir || process.env.VIDEOS_DIR;
-  const defaultDir = path.join(process.cwd(), 'videos');
-
-  // 相対パスの場合は絶対パスに変換
-  if (videosDir && !path.isAbsolute(videosDir)) {
-    videosDir = path.resolve(process.cwd(), videosDir);
-  }
-  
-  if (!videosDir || !fs.existsSync(videosDir)) {
-    if (fs.existsSync(defaultDir)) {
-      videosDir = defaultDir;
-    } else {
-      return NextResponse.json({ 
-        error: 'DIRECTORY_NOT_CONFIGURED',
-        message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成するか、config.json の "videosDir" で正しいパスを指定してください。'
-      }, { status: 404 });
-    }
-  }
-
-  // パスを絶対パスに正規化
-  const absoluteVideosDir = path.resolve(videosDir);
-  console.log(`[API] Scanning directory: ${absoluteVideosDir}`);
-
-  // サムネイルフォルダの作成
-  const thumbnailsDir = path.join(absoluteVideosDir, '_thumbnails');
-  if (!fs.existsSync(thumbnailsDir)) {
-    fs.mkdirSync(thumbnailsDir, { recursive: true });
-  }
-
-  const videos: any[] = [];
-  const seenPaths = new Set<string>();
-  const seenFilenames = new Set<string>();
-
-  // ディレクトリを再帰的に走査
-  function scanDir(dir: string, accountName?: string, inheritedMetadataMap?: Map<string, any>) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    
-    const isBaseDir = dir === absoluteVideosDir;
-    let metadataMap = inheritedMetadataMap;
-    const metaPath = path.join(dir, 'generations.json');
-    if (fs.existsSync(metaPath)) {
-      try {
-        const metaContent = fs.readFileSync(metaPath, 'utf8');
-        const metaJson = JSON.parse(metaContent);
-        if (Array.isArray(metaJson)) {
-          const nextMetadataMap = new Map<string, any>();
-          metaJson.forEach(item => {
-            if (item.id) nextMetadataMap.set(item.id, item);
-          });
-          metadataMap = nextMetadataMap;
-        }
-      } catch (e) {}
-    }
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      
-      // 実パスを取得して重複チェック (シンボリックリンク等による重複防止)
-      let realPath = '';
-      try {
-        realPath = fs.realpathSync(fullPath);
-        if (seenPaths.has(realPath)) continue;
-      } catch (e) {
-        continue;
-      }
-
-      if (entry.isDirectory()) {
-        // サムネイルフォルダはスキップ
-        if (IGNORED_SCAN_DIRECTORIES.has(entry.name)) continue;
-
-        let nextAccountName = accountName;
-        if (isBaseDir) {
-          const accountJsonPath = path.join(fullPath, 'account.json');
-          if (fs.existsSync(accountJsonPath)) {
-            try {
-              const accountData = JSON.parse(fs.readFileSync(accountJsonPath, 'utf8'));
-              nextAccountName = accountData.name || entry.name;
-            } catch (e) {
-              nextAccountName = entry.name;
-            }
-          } else {
-            nextAccountName = entry.name;
-          }
-        }
-        
-        seenPaths.add(realPath);
-        scanDir(fullPath, nextAccountName, metadataMap);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.mp4')) {
-        const filenameId = entry.name.replace(/\.mp4$/i, '');
-
-        // generations.json があるフォルダ配下では、JSONに存在する動画だけを正式な生成物として扱う
-        const meta = metadataMap?.get(filenameId);
-        if (metadataMap && !meta) continue;
-
-        // ファイル名（ID）ベースで重複チェック (共有動画対策)
-        if (seenFilenames.has(filenameId)) continue;
-
-        const relativePath = path.relative(absoluteVideosDir, fullPath);
-        const url = `/videos/${relativePath.split(path.sep).join('/')}`;
-        const id = relativePath.split(path.sep).join('@@').replace(/\.mp4$/i, '');
-
-        const thumbFilenameWebp = `${id}.webp`;
-        const thumbFilenameJpg = `${id}.jpg`;
-        const thumbPathWebp = path.join(thumbnailsDir, thumbFilenameWebp);
-        const thumbPathJpg = path.join(thumbnailsDir, thumbFilenameJpg);
-        
-        let thumbUrl = undefined;
-        if (fs.existsSync(thumbPathWebp)) {
-          thumbUrl = `/videos/_thumbnails/${thumbFilenameWebp}`;
-        } else if (fs.existsSync(thumbPathJpg)) {
-          thumbUrl = `/videos/_thumbnails/${thumbFilenameJpg}`;
-        }
-
-        let timestamp = 0;
-        let title = '';
-        let prompt = '';
-
-        if (meta) {
-          title = meta.title || '';
-          prompt = meta.prompt || '';
-          if (meta.task_id && meta.task_id.startsWith('task_')) {
-            timestamp = decodeTime(meta.task_id.replace('task_', ''));
-          }
-        }
-
-        if (timestamp === 0 && filenameId.startsWith('gen_')) {
-          const ulidPart = filenameId.replace('gen_', '');
-          if (ulidPart.length === 26) timestamp = decodeTime(ulidPart);
-        }
-
-        if (timestamp === 0) {
-          try {
-            timestamp = fs.statSync(fullPath).mtimeMs;
-          } catch (e) {}
-        }
-
-        // 重複チェックを実パスベースで行う
-        seenPaths.add(realPath);
-        seenFilenames.add(filenameId);
-        videos.push({
-          id,
-          filename: filenameId,
-          url,
-          timestamp,
-          title,
-          prompt,
-          account: accountName,
-          thumbnail: thumbUrl
-        });
-      }
-    }
-  }
-
   try {
-    scanDir(absoluteVideosDir);
-    // 新しい順（降順）にソート
-    videos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    
-    return NextResponse.json({ videos });
+    const library = await loadLibrary();
+    const options = library.resolveLibraryOptions({ cwd: process.cwd() });
+    const defaultDir = path.join(process.cwd(), 'videos');
+    let videosDir = options.videosDir;
+
+    if (!fs.existsSync(videosDir)) {
+      if (fs.existsSync(defaultDir)) {
+        videosDir = defaultDir;
+      } else {
+        return NextResponse.json({
+          error: 'DIRECTORY_NOT_CONFIGURED',
+          message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成するか、config.json の "videosDir" で正しいパスを指定してください。',
+        }, { status: 404 });
+      }
+    }
+
+    let sourceVideos: LibraryVideo[];
+    if (fs.existsSync(options.manifestPath)) {
+      const result = library.readVideoManifestWithExistingFiles(options.manifestPath, videosDir);
+      sourceVideos = result.videos;
+      videosDir = result.videosDir;
+      library.printReportSummary(result.report);
+    } else {
+      console.log('[API] 動画 manifest がないため、一時スキャンで表示します。正式運用では npm run generate:manifest を実行してください。');
+      const result = library.scanVideoLibrary({ videosDir, duplicateStrategy: options.duplicateStrategy });
+      sourceVideos = result.videos;
+      library.printReportSummary(result.report);
+    }
+
+    return NextResponse.json({
+      videos: sourceVideos.map((video) => toApiVideo(video, videosDir)),
+    });
   } catch (err: any) {
     console.error('API Error:', err);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'SERVER_ERROR',
-      message: `スキャン中にエラーが発生しました: ${err.message}` 
+      message: `スキャン中にエラーが発生しました: ${err.message}`,
     }, { status: 500 });
   }
 }
 
-// サムネイル保存用の POST ハンドラ
 export async function POST(request: Request) {
   try {
     const { id, dataUrl } = await request.json();
     if (!id || !dataUrl) {
       return NextResponse.json({ error: 'MISSING_PARAMS' }, { status: 400 });
     }
-
-    const configPath = path.join(process.cwd(), 'config.json');
-    let config: any = {};
-    if (fs.existsSync(configPath)) {
-      try {
-        config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      } catch (e) {}
+    if (typeof id !== 'string' || !id.startsWith('gen_') || id.includes('/') || id.includes('..')) {
+      return NextResponse.json({ error: 'INVALID_ID' }, { status: 400 });
     }
 
-    let videosDir = config.videosDir || process.env.VIDEOS_DIR;
-    const defaultDir = path.join(process.cwd(), 'videos');
-
-    // 相対パスの場合は絶対パスに変換
-    if (videosDir && !path.isAbsolute(videosDir)) {
-      videosDir = path.resolve(process.cwd(), videosDir);
-    }
-
-    if (!videosDir || !fs.existsSync(videosDir)) {
-      videosDir = defaultDir;
-    }
-
+    const library = await loadLibrary();
+    const options = library.resolveLibraryOptions({ cwd: process.cwd() });
+    const videosDir = fs.existsSync(options.videosDir) ? options.videosDir : path.join(process.cwd(), 'videos');
     const thumbnailsDir = path.join(videosDir, '_thumbnails');
     if (!fs.existsSync(thumbnailsDir)) {
       fs.mkdirSync(thumbnailsDir, { recursive: true });
     }
 
-    // data:image/webp;base64,.... をバイナリに変換
-    const base64Data = dataUrl.replace(/^data:image\/(webp|jpeg);base64,/, "");
+    const base64Data = dataUrl.replace(/^data:image\/(webp|jpeg);base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    
     const filePath = path.join(thumbnailsDir, `${id}.webp`);
     fs.writeFileSync(filePath, buffer);
 
@@ -249,53 +137,39 @@ export async function POST(request: Request) {
   }
 }
 
-// フォルダをFinderで開くための PUT ハンドラ
 export async function PUT(request: Request) {
   try {
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'MISSING_ID' }, { status: 400 });
 
-    const configPath = path.join(process.cwd(), 'config.json');
-    let config: any = {};
-    if (fs.existsSync(configPath)) {
-      try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch (e) {}
+    const library = await loadLibrary();
+    const options = library.resolveLibraryOptions({ cwd: process.cwd() });
+    const source = fs.existsSync(options.manifestPath)
+      ? library.readVideoManifestWithExistingFiles(options.manifestPath, options.videosDir).videos.find((video) => video.id === id)
+      : library.scanVideoLibrary({ videosDir: options.videosDir, duplicateStrategy: options.duplicateStrategy }).videos.find((video) => video.id === id);
+
+    if (!source) {
+      return NextResponse.json({ error: 'FILE_NOT_FOUND', id }, { status: 404 });
     }
 
-    let videosDir = config.videosDir || process.env.VIDEOS_DIR;
-    const defaultDir = path.join(process.cwd(), 'videos');
-
-    // 相対パスの場合は絶対パスに変換
-    if (videosDir && !path.isAbsolute(videosDir)) {
-      videosDir = path.resolve(process.cwd(), videosDir);
-    }
-
-    if (!videosDir || !fs.existsSync(videosDir)) videosDir = defaultDir;
-
-    // IDから相対パスを復元 (@@ をパス区切り文字に戻す)
-    const relativePath = id.split('@@').join(path.sep) + '.mp4';
-    const fullPath = path.resolve(videosDir, relativePath);
-    const dirPath = path.dirname(fullPath);
-
-    if (fs.existsSync(fullPath)) {
-      const { exec } = require('child_process');
-      let command = '';
-      
-      if (process.platform === 'darwin') {
-        // Mac: -R オプションでファイルを選択状態にする
-        command = `open -R "${fullPath}"`;
-      } else if (process.platform === 'win32') {
-        // Windows: /select オプションでファイルを選択状態にする
-        command = `explorer /select,"${fullPath}"`;
-      } else {
-        // Linux 等 (親フォルダを開く)
-        command = `xdg-open "${dirPath}"`;
-      }
-
-      exec(command);
-      return NextResponse.json({ success: true });
-    } else {
+    const fullPath = source.fullPath || path.resolve(options.videosDir, source.videoPath);
+    if (!fs.existsSync(fullPath)) {
       return NextResponse.json({ error: 'FILE_NOT_FOUND', path: fullPath }, { status: 404 });
     }
+
+    const { exec } = require('child_process');
+    const dirPath = path.dirname(fullPath);
+    let command = '';
+    if (process.platform === 'darwin') {
+      command = `open -R "${fullPath}"`;
+    } else if (process.platform === 'win32') {
+      command = `explorer /select,"${fullPath}"`;
+    } else {
+      command = `xdg-open "${dirPath}"`;
+    }
+
+    exec(command);
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: 'SERVER_ERROR', message: err.message }, { status: 500 });
   }
