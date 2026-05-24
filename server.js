@@ -33,10 +33,17 @@ app.prepare().then(() => {
     videosDir = path.resolve(__dirname, videosDir);
   }
 
-  if (!videosDir) {
+  if (!videosDir || !fs.existsSync(videosDir)) {
+    const configuredDir = videosDir;
     if (fs.existsSync(defaultDir)) {
       videosDir = defaultDir;
-      console.log(`> Using default video directory: ${videosDir}`);
+      if (configuredDir) {
+        console.warn(`Warning: configured videosDir not found, using default video directory: ${videosDir}`);
+      } else {
+        console.log(`> Using default video directory: ${videosDir}`);
+      }
+    } else if (configuredDir) {
+      console.warn(`Warning: configured videosDir not found: ${configuredDir}`);
     } else {
       console.warn('Warning: videosDir is not set in config.json and default "videos" folder not found.');
     }

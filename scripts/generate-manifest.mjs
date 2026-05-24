@@ -78,6 +78,11 @@ export function main() {
       duplicateStrategy: options.duplicateStrategy,
     });
   } catch (error) {
+    if (error?.report) {
+      writeJson(options.reportPath, error.report);
+      console.error(`report: ${options.reportPath}`);
+      printReportSummary(error.report);
+    }
     if (error instanceof Error) console.error(error.message);
     throw error;
   }

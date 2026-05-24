@@ -7,6 +7,14 @@ export const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const ENCODING_LEN = ENCODING.length;
 export const IGNORED_SCAN_DIRECTORIES = new Set(['_thumbnails', '_metadata', '_reports', '_maintenance']);
 
+export class VideoLibraryError extends Error {
+  constructor(message, { report } = {}) {
+    super(message);
+    this.name = 'VideoLibraryError';
+    this.report = report;
+  }
+}
+
 export function readJson(filePath, fallback) {
   if (!fs.existsSync(filePath)) return fallback;
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -187,10 +195,11 @@ function resolveDuplicates(groups, strategy, report) {
     const details = report.duplicateVideoIds
       .map((item) => [`- ${item.id}`, ...item.candidates.map((candidate) => `  - ${candidate}`)].join('\n'))
       .join('\n');
-    throw new Error(
+    throw new VideoLibraryError(
       `重複した動画 ID が見つかりました。\n\n${details}\n\n` +
         '自動で選ぶ場合は --duplicate-strategy prefer-oldest または prefer-newest を指定してください。' +
         '手動補正する場合は不要なファイルを _maintenance/ などへ移動してから再実行してください。',
+      { report },
     );
   }
   return videos;
