@@ -18,6 +18,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 直後に訂正があった場合は、必要に応じて `git commit --amend` で対応してよい。
 - `git push` はどのような場合であっても絶対に行わないこと。
 - ブラウザ上の操作確認は原則ユーザーが担当する。AIは実装、静的確認、`npm run build` などのコマンド確認を担当し、必要な確認手順をチャット上に提示する。
+- `npm run build` では、`src/app/api/videos/route.ts` のローカルファイルシステム参照により Turbopack の NFT trace warning が出ることがある。ローカル動画プレイヤーとして `fs` / `config.json` / 任意の `videosDir` を扱う設計上の警告で、build が成功している限り既知事項として扱う。
 
 ## Codex sandbox からの実行
 
