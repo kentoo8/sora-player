@@ -17,26 +17,43 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
 ## 準備
 1. **ダウンロード**: このページの右上にある緑色の「Code」ボタンをクリックし、「Download ZIP」を選択して保存・解凍してください。
 2. **Node.js**: [公式サイト](https://nodejs.org/)から「推奨版 (LTS)」をダウンロードしてインストールしてください。
-3. **動画の配置**: `videos/` フォルダに、Sora からエクスポートした動画データを以下の構成で配置してください。
+3. **動画の配置**: `videos/` フォルダ、または `config.json` の `videosDir` に指定したフォルダに、Sora2 からエクスポートした動画データを配置してください。動画ファイル名から拡張子を除いた `gen_...` を動画 ID として扱います。`sora-data-files-export-1` のようなフォルダ名や相対パスは主キーにしません。
 
    ```text
    videos/
-     ├── User_A/                (1) アカウント名でフォルダを作成
-     │   ├── sora-data-files-export-1/  (2) Sora からのエクスポートフォルダ
+     ├── User_A/
+     │   ├── sora-data-files-export-1/
      │   ├── sora-data-files-export-2/
-     │   ├── sora-data-files-manual/    (3) 手動で追加した動画フォルダ
      │   └── ...
-     ├── User_B/                (4) 複数アカウントがある場合は同様に作成
-     │   └── sora-data-files-export-1/
-     └── ...
+     ├── _thumbnails/
+     │   └── gen_xxx.webp
+     ├── _metadata/
+     └── _reports/
    ```
 
-   手動で追加した動画フォルダにも `generations.json` を置くことができます。`generations.json` があるフォルダ配下では、動画ファイル名から拡張子を除いた値と JSON の `id` が一致する動画だけがギャラリー対象になります。
+   `generations.json` があるフォルダでは、動画ファイル名の stem と JSON の `id` が一致する動画だけが対象になります。不一致や欠落は `npm run generate:manifest` の report に記録されます。
 
 4. **設定 (任意)**: デフォルトではプロジェクト内の `videos/` フォルダを参照しますが、以下の手順で任意の場所にある動画ライブラリを参照できます。
    1. `config.json.example` を `config.json` という名前でコピーします。
    2. `config.json` をテキストエディタで開き、`videosDir` の値を動画フォルダのパス（絶対パスまたは相対パス）に書き換えます。
-   3. アプリを再起動すると設定が反映されます。
+   3. 必要に応じて `manifestPath`, `reportPath`, `duplicateStrategy` を指定します。相対パスは `videosDir` 基準です。
+
+   ```json
+   {
+     "videosDir": "~/Documents/videos/sora2-data-files",
+     "manifestPath": "_metadata/manifest.json",
+     "reportPath": "_reports/scan-report.json",
+     "duplicateStrategy": "manual"
+   }
+   ```
+
+5. **動画 manifest の生成**: 通常運用では、起動前に動画アーカイブを正規化した manifest を生成します。
+
+   ```bash
+   npm run generate:manifest
+   ```
+
+   既定では `<videosDir>/_metadata/manifest.json` と `<videosDir>/_reports/scan-report.json` を上書きします。動画 ID が重複した場合、既定の `manual` では処理を止め、日本語のガイドを表示します。自動解決したい場合は `--duplicate-strategy prefer-oldest` または `--duplicate-strategy prefer-newest` を指定します。
 
 ## 起動
 
@@ -114,83 +131,12 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
 ## ローカルデータ
 - タグ情報は `data/tags.json` に保存されます。
 - `data/tags.json` はローカル個人データとして Git の管理対象外です。バックアップしたい場合はこのファイルをコピーしてください。
-- `generations.json` があるフォルダ配下では、JSON に記録された ID と一致する動画だけがギャラリー対象になります。
+- 動画 manifest は `videosDir` 配下の `_metadata/manifest.json` に保存される、ローカル動画アーカイブの正規化済み目録です。
+- サムネイルは player で閲覧しているうちに `_thumbnails/gen_xxx.webp` として生成されます。
+- player は動画 manifest があればそれを優先して読みます。manifest がない場合は一時的にスキャンして表示しますが、manifest は自動生成しません。
 
 ## sora-gallery 向け公開データの書き出し
-`sora-gallery` に渡す `public/videos.json` は、ローカルの動画一覧とタグから生成できます。誤公開を避けるため、書き出し対象にするローカルタグは `--include-tag` または export 設定の `includeTags` で必ず指定します。
-
-通常運用では、非公開の `data/gallery-export-config.json` を作成して公開対象と除外対象をまとめます。雛形は `data/gallery-export-config.example.json` です。
-
-```json
-{
-  "version": 1,
-  "publicBaseUrl": "https://cdn.example.com/sora",
-  "includeTags": ["public", "meta:public"],
-  "excludeTags": ["meta:no-public", "exclude-sample-a", "exclude-sample-b"],
-  "privateTagPrefixes": ["meta:"],
-  "allowedMetaTags": ["meta:public", "meta:no-public"]
-}
-```
-
-- `includeTags` のいずれかが付いた動画だけが公開候補になります。
-- `excludeTags` のいずれかが付いた動画は、公開候補であっても除外されます。
-- `meta:public` は個別動画を公開候補に入れるためのローカル制御タグです。
-- `meta:no-public` は個別動画を公開対象から外すためのローカル制御タグです。
-- `meta:public` と `meta:no-public` が同じ動画に付いている場合、意図が矛盾しているため export は失敗します。
-- `meta:` は予約 prefix です。公開候補に `allowedMetaTags` 以外の `meta:*` タグが付いている場合、export は失敗します。
-- `meta:*` タグは `public/videos.json` には出力されません。
-
-```bash
-npm run export:gallery -- \
-  --config data/gallery-export-config.json \
-  --out ../sora-gallery/public/videos.json
-```
-
-- `--public-base-url` は、R2 などに置いた動画とサムネイルが公開される HTTPS のベース URL です。
-- `--include-tag public` のように指定したタグが付いた動画だけを書き出します。
-- `--exclude-tag exclude-sample-a` のように指定すると、そのタグが付いた動画を公開候補から除外できます。
-- タグファイルを明示する場合は `--tags data/tags.json` のように指定できます。
-- `data/gallery-export-manifest.json` にローカル動画と公開 ID の対応を保存します。公開 ID はローカルのファイル名とは別に生成されます。
-- 出力される JSON には `id`, `videoUrl`, `thumbnailUrl`, `prompt`, `tags`, `createdAt` と、存在する場合のみ `description` が含まれます。
-- このコマンドは JSON を生成するだけで、動画ファイルやサムネイルを R2 へアップロードしません。
-- 確認だけ行う場合は `--dry-run` を付けます。
-
-R2 へアップロードする前に、公開 ID のファイル名へ揃えた一時ディレクトリを作成できます。
-
-```bash
-npm run prepare:gallery-upload -- \
-  --config data/gallery-export-config.json \
-  --out /private/tmp/sora-gallery-upload-prod
-```
-
-`--out` には空のディレクトリを指定してください。既存ファイルがある場合は、古い upload 対象の混入を避けるためエラーになります。
-
-作成後は `rclone` で `videos/` と `thumbnails/` を R2 にコピーします。
-
-```bash
-rclone copy /private/tmp/sora-gallery-upload-prod/videos r2:sora-gallery-media/videos
-rclone copy /private/tmp/sora-gallery-upload-prod/thumbnails r2:sora-gallery-media/thumbnails
-```
-
-更新時は、前回公開済みの `sora-gallery/public/videos.json` と次回 export 結果を比較して、追加・削除・JSONのみ変更を分けた同期計画を作成できます。
-
-```bash
-npm run plan:gallery-sync -- \
-  --config data/gallery-export-config.json \
-  --previous ../sora-gallery/public/videos.json \
-  --out /private/tmp/sora-gallery-sync
-```
-
-出力:
-
-- `videos.json`: 次回公開する `public/videos.json`。
-- `upload-manifest.json`: R2 へ追加アップロードする動画。
-- `delete-manifest.json`: R2 から削除する動画。
-- `changed-metadata.json`: タグや prompt など JSON だけが変わった動画。
-- `unchanged.json`: 変更なしの動画。
-- `videos/`, `thumbnails/`: 追加アップロード対象だけをコピーしたディレクトリ。
-
-`upload-manifest.json` が空でなければ `videos/` と `thumbnails/` を R2 にアップロードします。`delete-manifest.json` が空でなければ、対象 object を R2 から削除します。`changed-metadata.json` だけが変わっている場合は R2 を触らず、`videos.json` の更新と `sora-gallery` 側の検証・デプロイだけを行います。
+公開用 JSON の生成手順は [docs/gallery-publish.md](docs/gallery-publish.md) に分けています。ローカル動画アーカイブの「動画 manifest」と、公開 UUID を安定させる `data/gallery-export-manifest.json` は別物です。
 
 ## 補足
 @hio1345は作者のSora2アカウント名でした
