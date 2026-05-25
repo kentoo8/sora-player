@@ -5,9 +5,14 @@ import path from 'path';
 export const runtime = 'nodejs';
 
 type LibraryModule = {
+  buildVideoManifest: (options: { videosDir: string; duplicateStrategy: string }) => {
+    manifest: { videos: LibraryVideo[] };
+    report: unknown;
+  };
   resolveLibraryOptions: (options?: { cwd?: string }) => {
     videosDir: string;
     manifestPath: string;
+    reportPath: string;
     duplicateStrategy: string;
   };
   readVideoManifestWithExistingFiles: (manifestPath: string, videosDir?: string) => {
@@ -20,6 +25,7 @@ type LibraryModule = {
     report: unknown;
   };
   printReportSummary: (report: unknown) => void;
+  writeJson: (filePath: string, value: unknown) => void;
 };
 
 type LibraryVideo = {
@@ -64,8 +70,8 @@ function toApiVideo(video: LibraryVideo, videosDir: string) {
   };
 }
 
-function runtimeScanDuplicateStrategy(duplicateStrategy: string) {
-  return duplicateStrategy === 'manual' ? 'prefer-newest' : duplicateStrategy;
+function autoManifestDuplicateStrategy(duplicateStrategy: string) {
+  return duplicateStrategy === 'manual' ? 'prefer-oldest' : duplicateStrategy;
 }
 
 export async function GET() {
@@ -93,13 +99,20 @@ export async function GET() {
       videosDir = result.videosDir;
       library.printReportSummary(result.report);
     } else {
-      console.log('[API] 動画 manifest がないため、一時スキャンで表示します。正式運用では npm run generate:manifest を実行してください。');
-      const result = library.scanVideoLibrary({
-        videosDir,
-        duplicateStrategy: runtimeScanDuplicateStrategy(options.duplicateStrategy),
-      });
-      sourceVideos = result.videos;
-      library.printReportSummary(result.report);
+      const duplicateStrategy = autoManifestDuplicateStrategy(options.duplicateStrategy);
+      try {
+        console.log('[API] 動画 manifest がないため、自動生成します。');
+        const result = library.buildVideoManifest({ videosDir, duplicateStrategy });
+        library.writeJson(options.manifestPath, result.manifest);
+        library.writeJson(options.reportPath, result.report);
+        sourceVideos = result.manifest.videos;
+        library.printReportSummary(result.report);
+      } catch (error) {
+        console.error('[API] 動画 manifest の自動生成に失敗したため、一時スキャンで表示します:', error);
+        const result = library.scanVideoLibrary({ videosDir, duplicateStrategy });
+        sourceVideos = result.videos;
+        library.printReportSummary(result.report);
+      }
     }
 
     return NextResponse.json({
@@ -155,7 +168,7 @@ export async function PUT(request: Request) {
       ? library.readVideoManifestWithExistingFiles(options.manifestPath, options.videosDir).videos.find((video) => video.id === id)
       : library.scanVideoLibrary({
         videosDir: options.videosDir,
-        duplicateStrategy: runtimeScanDuplicateStrategy(options.duplicateStrategy),
+        duplicateStrategy: autoManifestDuplicateStrategy(options.duplicateStrategy),
       }).videos.find((video) => video.id === id);
 
     if (!source) {
