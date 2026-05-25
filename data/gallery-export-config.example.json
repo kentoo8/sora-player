@@ -2,10 +2,12 @@
   "version": 1,
   "publicBaseUrl": "https://cdn.example.com/sora",
   "includeTags": [
-    "meta:public"
+    "meta:public",
+    "公開したいタグ1"
   ],
   "excludeTags": [
-    "meta:no-public"
+    "meta:no-public",
+    "除外したいタグ1"
   ],
   "privateTagPrefixes": [
     "meta:"

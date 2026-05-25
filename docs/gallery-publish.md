@@ -23,14 +23,14 @@
    {
      "version": 1,
      "publicBaseUrl": "https://cdn.example.com/sora",
-     "includeTags": ["meta:public"],
-     "excludeTags": ["meta:no-public"],
+     "includeTags": ["meta:public", "公開したいタグ1", "公開したいタグ2"],
+     "excludeTags": ["meta:no-public", "除外したいタグ1", "除外したいタグ2"],
      "privateTagPrefixes": ["meta:"],
      "allowedMetaTags": ["meta:public", "meta:no-public"]
    }
    ```
 
-   `includeTags` に一致するタグを持つ動画だけが公開候補になります。`excludeTags` は公開候補から除外するためのタグです。特定の通常タグも公開条件にしたい場合は、`includeTags` にそのタグ名を追加します。
+   `includeTags` に一致するタグを持つ動画だけが公開候補になります。`excludeTags` は公開候補から除外するためのタグです。
 
 3. 公開したい動画に player 上で `meta:public` を付けます。公開したくない動画には `meta:no-public` を付けます。
 
