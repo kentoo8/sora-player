@@ -249,6 +249,7 @@ const ThumbnailItem = memo(function ThumbnailItem({
 export default function Home() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLoadingDetail, setShowLoadingDetail] = useState(false);
   const [error, setError] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -912,6 +913,10 @@ export default function Home() {
   const lastHistoryNavTimeRef = useRef(0);
 
   useEffect(() => {
+    const loadingDetailTimer = window.setTimeout(() => {
+      setShowLoadingDetail(true);
+    }, 2000);
+
     Promise.all([
       fetch('/api/videos').then(async res => {
         const data = await res.json();
@@ -932,13 +937,17 @@ export default function Home() {
         }));
         setVideos(sortVideosByTimestamp(videosWithTags, sortOrder));
         setLoading(false);
+        clearTimeout(loadingDetailTimer);
         setRenderGrid(true); // 初期ロード完了時にギャラリーをマウントしておく
       })
       .catch(err => {
         console.error(err);
         setError(err.message);
         setLoading(false);
+        clearTimeout(loadingDetailTimer);
       });
+
+    return () => clearTimeout(loadingDetailTimer);
   }, []);
 
   // currentIndex の最新値を ref で保持（useEffect の依存配列に入れず、ループを中断させないため）
@@ -1300,7 +1309,14 @@ export default function Home() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="text-2xl animate-pulse font-light tracking-widest uppercase">Initializing...</div>
+        <div className="px-8 text-center">
+          <div className="text-2xl animate-pulse font-light tracking-widest uppercase">Loading video library...</div>
+          {showLoadingDetail && (
+            <p className="mt-4 text-sm leading-relaxed text-white/50">
+              初回起動時は動画 manifest を自動生成しています。動画数が多い場合は少し時間がかかります。
+            </p>
+          )}
+        </div>
       </div>
     );
   }
