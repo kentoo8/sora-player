@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -74,6 +75,26 @@ function autoManifestDuplicateStrategy(duplicateStrategy: string) {
   return duplicateStrategy === 'manual' ? 'prefer-oldest' : duplicateStrategy;
 }
 
+function isPathInsideDirectory(filePath: string, directoryPath: string) {
+  const relativePath = path.relative(path.resolve(directoryPath), path.resolve(filePath));
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+function revealFileInSystem(filePath: string) {
+  const dirPath = path.dirname(filePath);
+  if (process.platform === 'darwin') {
+    execFile('open', ['-R', filePath]);
+  } else if (process.platform === 'win32') {
+    execFile('explorer', [`/select,${filePath}`]);
+  } else {
+    execFile('xdg-open', [dirPath]);
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function GET() {
   try {
     const library = await loadLibrary();
@@ -118,11 +139,11 @@ export async function GET() {
     return NextResponse.json({
       videos: sourceVideos.map((video) => toApiVideo(video, videosDir)),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('API Error:', err);
     return NextResponse.json({
       error: 'SERVER_ERROR',
-      message: `スキャン中にエラーが発生しました: ${err.message}`,
+      message: `スキャン中にエラーが発生しました: ${getErrorMessage(err)}`,
     }, { status: 500 });
   }
 }
@@ -151,9 +172,9 @@ export async function POST(request: Request) {
     fs.writeFileSync(filePath, buffer);
 
     return NextResponse.json({ success: true, path: filePath });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Thumbnail Save Error:', err);
-    return NextResponse.json({ error: 'SAVE_FAILED', message: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'SAVE_FAILED', message: getErrorMessage(err) }, { status: 500 });
   }
 }
 
@@ -175,25 +196,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'FILE_NOT_FOUND', id }, { status: 404 });
     }
 
-    const fullPath = source.fullPath || path.resolve(options.videosDir, source.videoPath);
+    const fullPath = path.resolve(source.fullPath || path.resolve(options.videosDir, source.videoPath));
+    if (!isPathInsideDirectory(fullPath, options.videosDir)) {
+      return NextResponse.json({ error: 'INVALID_PATH' }, { status: 400 });
+    }
     if (!fs.existsSync(fullPath)) {
       return NextResponse.json({ error: 'FILE_NOT_FOUND', path: fullPath }, { status: 404 });
     }
 
-    const { exec } = require('child_process');
-    const dirPath = path.dirname(fullPath);
-    let command = '';
-    if (process.platform === 'darwin') {
-      command = `open -R "${fullPath}"`;
-    } else if (process.platform === 'win32') {
-      command = `explorer /select,"${fullPath}"`;
-    } else {
-      command = `xdg-open "${dirPath}"`;
-    }
-
-    exec(command);
+    revealFileInSystem(fullPath);
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'SERVER_ERROR', message: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'SERVER_ERROR', message: getErrorMessage(err) }, { status: 500 });
   }
 }
