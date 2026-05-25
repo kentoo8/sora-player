@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import {
+  getErrorMessage,
+  isPathInsideDirectory,
+  resolveRuntimeLibraryOptions,
+} from '../../../lib/api-file-helpers.mjs';
 
 export const runtime = 'nodejs';
 
@@ -28,8 +33,6 @@ type LibraryModule = {
   printReportSummary: (report: unknown) => void;
   writeJson: (filePath: string, value: unknown) => void;
 };
-
-type LibraryOptions = ReturnType<LibraryModule['resolveLibraryOptions']>;
 
 type LibraryVideo = {
   id: string;
@@ -77,38 +80,6 @@ function autoManifestDuplicateStrategy(duplicateStrategy: string) {
   return duplicateStrategy === 'manual' ? 'prefer-oldest' : duplicateStrategy;
 }
 
-function resolveExistingVideosDir(configuredVideosDir: string) {
-  if (fs.existsSync(configuredVideosDir)) return configuredVideosDir;
-
-  const defaultDir = path.join(process.cwd(), 'videos');
-  return fs.existsSync(defaultDir) ? defaultDir : undefined;
-}
-
-function resolveArchivePathForVideosDir(filePath: string, originalVideosDir: string, videosDir: string) {
-  if (videosDir === originalVideosDir) return filePath;
-
-  const relativePath = path.relative(originalVideosDir, filePath);
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return filePath;
-  return path.resolve(videosDir, relativePath);
-}
-
-function resolveRuntimeLibraryOptions(options: LibraryOptions) {
-  const videosDir = resolveExistingVideosDir(options.videosDir);
-  if (!videosDir) return undefined;
-
-  return {
-    ...options,
-    videosDir,
-    manifestPath: resolveArchivePathForVideosDir(options.manifestPath, options.videosDir, videosDir),
-    reportPath: resolveArchivePathForVideosDir(options.reportPath, options.videosDir, videosDir),
-  };
-}
-
-function isPathInsideDirectory(filePath: string, directoryPath: string) {
-  const relativePath = path.relative(path.resolve(directoryPath), path.resolve(filePath));
-  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
-}
-
 function revealFileInSystem(filePath: string) {
   const dirPath = path.dirname(filePath);
   if (process.platform === 'darwin') {
@@ -118,10 +89,6 @@ function revealFileInSystem(filePath: string) {
   } else {
     execFile('xdg-open', [dirPath]);
   }
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export async function GET() {
