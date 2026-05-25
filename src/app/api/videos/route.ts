@@ -29,6 +29,8 @@ type LibraryModule = {
   writeJson: (filePath: string, value: unknown) => void;
 };
 
+type LibraryOptions = ReturnType<LibraryModule['resolveLibraryOptions']>;
+
 type LibraryVideo = {
   id: string;
   filename?: string;
@@ -75,6 +77,33 @@ function autoManifestDuplicateStrategy(duplicateStrategy: string) {
   return duplicateStrategy === 'manual' ? 'prefer-oldest' : duplicateStrategy;
 }
 
+function resolveExistingVideosDir(configuredVideosDir: string) {
+  if (fs.existsSync(configuredVideosDir)) return configuredVideosDir;
+
+  const defaultDir = path.join(process.cwd(), 'videos');
+  return fs.existsSync(defaultDir) ? defaultDir : undefined;
+}
+
+function resolveArchivePathForVideosDir(filePath: string, originalVideosDir: string, videosDir: string) {
+  if (videosDir === originalVideosDir) return filePath;
+
+  const relativePath = path.relative(originalVideosDir, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return filePath;
+  return path.resolve(videosDir, relativePath);
+}
+
+function resolveRuntimeLibraryOptions(options: LibraryOptions) {
+  const videosDir = resolveExistingVideosDir(options.videosDir);
+  if (!videosDir) return undefined;
+
+  return {
+    ...options,
+    videosDir,
+    manifestPath: resolveArchivePathForVideosDir(options.manifestPath, options.videosDir, videosDir),
+    reportPath: resolveArchivePathForVideosDir(options.reportPath, options.videosDir, videosDir),
+  };
+}
+
 function isPathInsideDirectory(filePath: string, directoryPath: string) {
   const relativePath = path.relative(path.resolve(directoryPath), path.resolve(filePath));
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
@@ -99,33 +128,29 @@ export async function GET() {
   try {
     const library = await loadLibrary();
     const options = library.resolveLibraryOptions({ cwd: process.cwd() });
-    const defaultDir = path.join(process.cwd(), 'videos');
-    let videosDir = options.videosDir;
+    const runtimeOptions = resolveRuntimeLibraryOptions(options);
 
-    if (!fs.existsSync(videosDir)) {
-      if (fs.existsSync(defaultDir)) {
-        videosDir = defaultDir;
-      } else {
-        return NextResponse.json({
-          error: 'DIRECTORY_NOT_CONFIGURED',
-          message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成するか、config.json の "videosDir" で正しいパスを指定してください。',
-        }, { status: 404 });
-      }
+    if (!runtimeOptions) {
+      return NextResponse.json({
+        error: 'DIRECTORY_NOT_CONFIGURED',
+        message: '動画フォルダが見つかりません。プロジェクト直下に "videos" フォルダを作成するか、config.json の "videosDir" で正しいパスを指定してください。',
+      }, { status: 404 });
     }
 
     let sourceVideos: LibraryVideo[];
-    if (fs.existsSync(options.manifestPath)) {
-      const result = library.readVideoManifestWithExistingFiles(options.manifestPath, videosDir);
+    let videosDir = runtimeOptions.videosDir;
+    if (fs.existsSync(runtimeOptions.manifestPath)) {
+      const result = library.readVideoManifestWithExistingFiles(runtimeOptions.manifestPath, videosDir);
       sourceVideos = result.videos;
       videosDir = result.videosDir;
       library.printReportSummary(result.report);
     } else {
-      const duplicateStrategy = autoManifestDuplicateStrategy(options.duplicateStrategy);
+      const duplicateStrategy = autoManifestDuplicateStrategy(runtimeOptions.duplicateStrategy);
       try {
         console.log('[API] 動画 manifest がないため、自動生成します。');
         const result = library.buildVideoManifest({ videosDir, duplicateStrategy });
-        library.writeJson(options.manifestPath, result.manifest);
-        library.writeJson(options.reportPath, result.report);
+        library.writeJson(runtimeOptions.manifestPath, result.manifest);
+        library.writeJson(runtimeOptions.reportPath, result.report);
         sourceVideos = result.manifest.videos;
         library.printReportSummary(result.report);
       } catch (error) {
@@ -160,7 +185,12 @@ export async function POST(request: Request) {
 
     const library = await loadLibrary();
     const options = library.resolveLibraryOptions({ cwd: process.cwd() });
-    const videosDir = fs.existsSync(options.videosDir) ? options.videosDir : path.join(process.cwd(), 'videos');
+    const runtimeOptions = resolveRuntimeLibraryOptions(options);
+    if (!runtimeOptions) {
+      return NextResponse.json({ error: 'DIRECTORY_NOT_CONFIGURED' }, { status: 404 });
+    }
+
+    const videosDir = runtimeOptions.videosDir;
     const thumbnailsDir = path.join(videosDir, '_thumbnails');
     if (!fs.existsSync(thumbnailsDir)) {
       fs.mkdirSync(thumbnailsDir, { recursive: true });
@@ -185,19 +215,24 @@ export async function PUT(request: Request) {
 
     const library = await loadLibrary();
     const options = library.resolveLibraryOptions({ cwd: process.cwd() });
-    const source = fs.existsSync(options.manifestPath)
-      ? library.readVideoManifestWithExistingFiles(options.manifestPath, options.videosDir).videos.find((video) => video.id === id)
+    const runtimeOptions = resolveRuntimeLibraryOptions(options);
+    if (!runtimeOptions) {
+      return NextResponse.json({ error: 'DIRECTORY_NOT_CONFIGURED' }, { status: 404 });
+    }
+
+    const source = fs.existsSync(runtimeOptions.manifestPath)
+      ? library.readVideoManifestWithExistingFiles(runtimeOptions.manifestPath, runtimeOptions.videosDir).videos.find((video) => video.id === id)
       : library.scanVideoLibrary({
-        videosDir: options.videosDir,
-        duplicateStrategy: autoManifestDuplicateStrategy(options.duplicateStrategy),
+        videosDir: runtimeOptions.videosDir,
+        duplicateStrategy: autoManifestDuplicateStrategy(runtimeOptions.duplicateStrategy),
       }).videos.find((video) => video.id === id);
 
     if (!source) {
       return NextResponse.json({ error: 'FILE_NOT_FOUND', id }, { status: 404 });
     }
 
-    const fullPath = path.resolve(source.fullPath || path.resolve(options.videosDir, source.videoPath));
-    if (!isPathInsideDirectory(fullPath, options.videosDir)) {
+    const fullPath = path.resolve(source.fullPath || path.resolve(runtimeOptions.videosDir, source.videoPath));
+    if (!isPathInsideDirectory(fullPath, runtimeOptions.videosDir)) {
       return NextResponse.json({ error: 'INVALID_PATH' }, { status: 400 });
     }
     if (!fs.existsSync(fullPath)) {
