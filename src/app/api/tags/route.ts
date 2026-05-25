@@ -52,12 +52,16 @@ function writeTagsFile(tagsFile: TagsFile) {
   fs.writeFileSync(tagsPath, `${JSON.stringify(tagsFile, null, 2)}\n`);
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function GET() {
   try {
     return NextResponse.json(readTagsFile());
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: 'READ_FAILED', message: err.message },
+      { error: 'READ_FAILED', message: getErrorMessage(err) },
       { status: 500 }
     );
   }
@@ -86,9 +90,9 @@ export async function POST(request: Request) {
     writeTagsFile(tagsFile);
 
     return NextResponse.json({ success: true, tags: tagsFile.videos });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: 'SAVE_FAILED', message: err.message },
+      { error: 'SAVE_FAILED', message: getErrorMessage(err) },
       { status: 500 }
     );
   }
@@ -138,9 +142,9 @@ export async function PUT(request: Request) {
     writeTagsFile(tagsFile);
 
     return NextResponse.json({ success: true, tags: tagsFile.videos });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: 'SAVE_FAILED', message: err.message },
+      { error: 'SAVE_FAILED', message: getErrorMessage(err) },
       { status: 500 }
     );
   }

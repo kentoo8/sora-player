@@ -414,7 +414,7 @@ export function readVideoManifestWithExistingFiles(manifestPath, videosDir) {
 }
 
 export function reportHasWarnings(report) {
-  return Object.entries(report).some(([key, value]) => Array.isArray(value) && value.length > 0);
+  return Object.values(report).some((value) => Array.isArray(value) && value.length > 0);
 }
 
 export function printReportSummary(report) {

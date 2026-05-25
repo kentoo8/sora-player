@@ -49,7 +49,6 @@ const ThumbnailItem = memo(function ThumbnailItem({
   isActive,
   isSelected,
   onClick,
-  onToggleSelected,
   onSelectionDragStart,
   onSelectionDragEnter,
   filteredIndex
@@ -59,7 +58,6 @@ const ThumbnailItem = memo(function ThumbnailItem({
   isActive: boolean;
   isSelected: boolean;
   onClick: () => void;
-  onToggleSelected: () => void;
   onSelectionDragStart: (clientX: number, clientY: number) => void;
   onSelectionDragEnter: () => void;
   filteredIndex: number;
@@ -132,7 +130,7 @@ const ThumbnailItem = memo(function ThumbnailItem({
     if (isActive && containerRef.current) {
       containerRef.current.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
-  }, []);
+  }, [isActive]);
 
   return (
     <div 
@@ -167,6 +165,7 @@ const ThumbnailItem = memo(function ThumbnailItem({
       </button>
 
       {cachedUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img 
           src={cachedUrl}
           alt=""
@@ -290,7 +289,7 @@ export default function Home() {
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
     if (!isComposing) {
-      setActiveSearchQuery(searchQuery);
+      queueMicrotask(() => setActiveSearchQuery(searchQuery));
     }
   }, [searchQuery, isComposing]);
 
@@ -554,18 +553,6 @@ export default function Home() {
     setShowThumbnailGrid(false);
   };
 
-  const toggleSelectedVideo = (videoId: string) => {
-    setSelectedVideoIds(prev => {
-      const next = new Set(prev);
-      if (next.has(videoId)) {
-        next.delete(videoId);
-      } else {
-        next.add(videoId);
-      }
-      return next;
-    });
-  };
-
   const startSelectionDrag = (filteredIdx: number, clientX: number, clientY: number) => {
     isSelectionDraggingRef.current = true;
     selectionDragAnchorRef.current = filteredIdx;
@@ -807,7 +794,7 @@ export default function Home() {
   // showThumbnailGridが変わったときの処理（フォーカス制御や検索バーの同期）
   useEffect(() => {
     if (showThumbnailGrid) {
-      setShowSearchBar(true);
+      queueMicrotask(() => setShowSearchBar(true));
 
       // 履歴移動やタグクリックによる遷移の場合は検索窓への自動フォーカスをスキップする
       if (!isNavigatingHistoryRef.current && !skipSearchFocusRef.current) {
@@ -821,7 +808,7 @@ export default function Home() {
       skipSearchFocusRef.current = false;
     } else {
       searchInputRef.current?.blur();
-      setShowSearchBar(false);
+      queueMicrotask(() => setShowSearchBar(false));
     }
   }, [showThumbnailGrid]);
 
@@ -841,19 +828,22 @@ export default function Home() {
 
   // 選択動画が変わったらpendingTagsを共通タグで初期化
   useEffect(() => {
-    if (selectedVideoIds.size > 0) {
-      setPendingTags(new Set(selectedVideosCommonTags));
+    queueMicrotask(() => {
+      if (selectedVideoIds.size > 0) {
+        setPendingTags(new Set(selectedVideosCommonTags));
+      } else {
+        setPendingTags(new Set());
+      }
       setRemovedCommonTags(new Set());
-    } else {
-      setPendingTags(new Set());
-      setRemovedCommonTags(new Set());
-    }
-  }, [selectedVideoIds]);
+    });
+  }, [selectedVideoIds, selectedVideosCommonTags]);
 
   useEffect(() => {
     if (!showThumbnailGrid) {
-      setSelectedVideoIds(new Set());
-      setRemovedCommonTags(new Set());
+      queueMicrotask(() => {
+        setSelectedVideoIds(new Set());
+        setRemovedCommonTags(new Set());
+      });
     }
   }, [showThumbnailGrid]);
 
@@ -901,7 +891,7 @@ export default function Home() {
 
     const firstResultIndex = videos.findIndex(video => video.id === filteredVideos[0].id);
     if (firstResultIndex !== -1) {
-      setCurrentIndex(firstResultIndex);
+      queueMicrotask(() => setCurrentIndex(firstResultIndex));
     }
   }, [isSearchActive, filteredVideos, videos, currentVideoId]);
 
@@ -1352,7 +1342,7 @@ export default function Home() {
             <div className="pt-4 flex flex-col gap-3">
               <p className="text-xs text-white/40 uppercase tracking-widest font-medium">Alternative for power users</p>
               <p className="text-sm">
-                または、<code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">config.json</code> ファイルを作成し、 <code className="text-blue-400">"videosDir": "/path/to/videos"</code> を指定することも可能です。
+                または、<code className="bg-white/10 px-2 py-0.5 rounded text-white font-mono">config.json</code> ファイルを作成し、 <code className="text-blue-400">&quot;videosDir&quot;: &quot;/path/to/videos&quot;</code> を指定することも可能です。
               </p>
             </div>
           </div>
@@ -1781,7 +1771,6 @@ export default function Home() {
                     filteredIndex={index}
                     isActive={originalIndex === currentIndex}
                     isSelected={selectedVideoIds.has(video.id)}
-                    onToggleSelected={() => toggleSelectedVideo(video.id)}
                     onSelectionDragStart={(clientX, clientY) => startSelectionDrag(index, clientX, clientY)}
                     onSelectionDragEnter={() => selectVideoDuringDrag(index)}
                     onClick={() => {

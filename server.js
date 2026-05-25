@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const express = require('express');
 const next = require('next');
 const os = require('os');
