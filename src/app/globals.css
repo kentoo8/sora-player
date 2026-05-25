@@ -3,13 +3,15 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --app-font-sans: Arial, Helvetica, sans-serif;
+  --app-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,7 +25,7 @@ html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--app-font-sans);
   overscroll-behavior: none;
   height: 100%;
   overflow: hidden;
@@ -47,4 +49,3 @@ nextjs-portal,
 [data-nextjs-portal] {
   display: none !important;
 }
-
