@@ -1,5 +1,6 @@
 const express = require('express');
 const next = require('next');
+const os = require('os');
 const path = require('path');
 
 const fs = require('fs');
@@ -22,10 +23,19 @@ const handle = app.getRequestHandler();
 
 const port = config.port || process.env.PORT || 3000;
 
+function expandHomePath(filePath) {
+  if (typeof filePath !== 'string') return filePath;
+  if (filePath === '~') return os.homedir();
+  if (filePath.startsWith('~/') || filePath.startsWith('~\\')) {
+    return path.join(os.homedir(), filePath.slice(2));
+  }
+  return filePath;
+}
+
 app.prepare().then(() => {
   const server = express();
 
-  let videosDir = config.videosDir || process.env.VIDEOS_DIR;
+  let videosDir = expandHomePath(config.videosDir || process.env.VIDEOS_DIR);
   const defaultDir = path.join(__dirname, 'videos');
 
   // 相対パスの場合は絶対パスに変換

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export const VIDEO_MANIFEST_VERSION = 1;
@@ -30,16 +31,31 @@ export function readPlayerConfig(cwd = process.cwd()) {
   return readJson(path.join(cwd, 'config.json'), {});
 }
 
+export function expandHomePath(filePath) {
+  if (typeof filePath !== 'string') return filePath;
+  if (filePath === '~') return os.homedir();
+  if (filePath.startsWith('~/') || filePath.startsWith('~\\')) {
+    return path.join(os.homedir(), filePath.slice(2));
+  }
+  return filePath;
+}
+
 export function resolveVideosDir(explicitVideosDir, cwd = process.cwd()) {
-  if (explicitVideosDir) return path.isAbsolute(explicitVideosDir) ? explicitVideosDir : path.resolve(cwd, explicitVideosDir);
+  if (explicitVideosDir) {
+    const expandedDir = expandHomePath(explicitVideosDir);
+    return path.isAbsolute(expandedDir) ? expandedDir : path.resolve(cwd, expandedDir);
+  }
   const config = readPlayerConfig(cwd);
   const configuredDir = config.videosDir || process.env.VIDEOS_DIR;
-  if (configuredDir) return path.isAbsolute(configuredDir) ? configuredDir : path.resolve(cwd, configuredDir);
+  if (configuredDir) {
+    const expandedDir = expandHomePath(configuredDir);
+    return path.isAbsolute(expandedDir) ? expandedDir : path.resolve(cwd, expandedDir);
+  }
   return path.resolve(cwd, 'videos');
 }
 
 export function resolveArchivePath({ videosDir, value, defaultRelative }) {
-  const pathValue = value || defaultRelative;
+  const pathValue = expandHomePath(value || defaultRelative);
   if (path.isAbsolute(pathValue)) return pathValue;
   return path.resolve(videosDir, pathValue);
 }
