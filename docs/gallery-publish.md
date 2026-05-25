@@ -1,97 +1,62 @@
 # sora-gallery 公開手順
 
-このドキュメントは `sora-player` で管理しているローカル動画を、`sora-gallery` の `public/videos.json` と R2 アップロード用ファイルへ変換する手順です。
+`sora-player` で管理しているローカル動画から、`sora-gallery` の `public/videos.json` と R2 アップロード用ファイルを作る手順です。
 
-## 2つの manifest
-
-`sora-player` には役割の違う manifest が2つあります。
-
-| ファイル | 役割 | 主キー |
-| --- | --- | --- |
-| `<videosDir>/_metadata/manifest.json` | ローカル動画アーカイブの正規化済み目録 | `gen_xxx` |
-| `data/gallery-export-manifest.json` | `gen_xxx` と公開 UUID / object key の対応表 | `gen_xxx` |
-
-動画 manifest は、動画ファイルの所在、サムネイル、`generations.json` 由来の `prompt` / `createdAt` などを持ちます。
-
-gallery export manifest は、公開 URL を安定させるための対応表です。`public/videos.json` の `id` と URL は公開 UUID ベースで、ローカル ID やローカルパスは出力しません。
+通常更新では **動画 manifest 生成 → 同期計画作成 → R2 反映 → sora-gallery 反映** の順に進めます。
 
 ## 事前準備
 
-`config.json` に動画アーカイブを設定します。`config.json` は Git 管理外です。
+1. `config.json` で動画アーカイブの場所を設定します。
 
-```json
-{
-  "videosDir": "~/Documents/videos/sora2-data-files",
-  "manifestPath": "_metadata/manifest.json",
-  "reportPath": "_reports/scan-report.json",
-  "duplicateStrategy": "manual"
-}
-```
+   ```json
+   {
+     "videosDir": "~/Documents/videos/sora2-data-files",
+     "manifestPath": "_metadata/manifest.json",
+     "reportPath": "_reports/scan-report.json",
+     "duplicateStrategy": "manual"
+   }
+   ```
 
-相対の `manifestPath` と `reportPath` は `videosDir` 基準です。
+2. `data/gallery-export-config.example.json` を参考に、`data/gallery-export-config.json` を用意します。
 
-## 動画 manifest を生成
+   ```json
+   {
+     "version": 1,
+     "publicBaseUrl": "https://cdn.example.com/sora",
+     "includeTags": ["meta:public"],
+     "excludeTags": ["meta:no-public"],
+     "privateTagPrefixes": ["meta:"],
+     "allowedMetaTags": ["meta:public", "meta:no-public"]
+   }
+   ```
+
+   `includeTags` に一致するタグを持つ動画だけが公開候補になります。`excludeTags` は公開候補から除外するためのタグです。
+
+3. 公開したい動画に player 上で `meta:public` を付けます。公開したくない動画には `meta:no-public` を付けます。
+
+## 動画 manifest を更新
+
+公開作業の前に、ローカル動画アーカイブの目録を更新します。
 
 ```bash
 npm run generate:manifest
 ```
 
-既定では以下を上書きします。
+既定では以下を更新します。
 
 - `<videosDir>/_metadata/manifest.json`
 - `<videosDir>/_reports/scan-report.json`
 
-`duplicateStrategy` の既定は `manual` です。同じ `gen_xxx` の動画が複数ある場合は処理を止め、日本語のガイドと候補パスを出します。自動解決する場合は次のように再実行します。
+同じ `gen_xxx` の動画が複数ある場合、既定では処理を止めます。意図して自動解決する場合だけ、次のいずれかで再実行します。
 
 ```bash
 npm run generate:manifest -- --duplicate-strategy prefer-oldest
 npm run generate:manifest -- --duplicate-strategy prefer-newest
 ```
 
-警告だけなら manifest は生成されます。たとえば `generations.json` に対応する動画がない、`gen_` 以外の動画がある、サムネイルが未生成、などは `_reports/scan-report.json` に残ります。
+## 通常更新
 
-## サムネイル
-
-player ではサムネイルがない動画も表示されます。動画を閲覧しているうちに `_thumbnails/gen_xxx.webp` が生成されます。
-
-gallery export / prepare / sync では、公開候補にサムネイルがない場合はエラーになります。エラーに表示された ID を player で開き、サムネイル生成後に再実行してください。
-
-## 公開 JSON を生成
-
-`sora-gallery` に渡す `public/videos.json` は、動画 manifest とタグから生成します。誤公開を避けるため、公開対象にするタグは `data/gallery-export-config.json` の `includeTags` で指定します。
-
-```bash
-npm run export:gallery -- \
-  --config data/gallery-export-config.json \
-  --out ../sora-gallery/public/videos.json
-```
-
-`public/videos.json` には `id`, `videoUrl`, `thumbnailUrl`, `prompt`, `tags`, `createdAt` と、空でない場合のみ `description` が含まれます。`id` は公開 UUID です。`gen_xxx`、ローカルパス、相対パス、ローカルアカウント名は含めません。
-
-確認だけ行う場合は `--dry-run` を付けます。
-
-## アップロード用ディレクトリを作成
-
-R2 へアップロードする前に、公開 UUID のファイル名へ揃えた一時ディレクトリを作成します。
-
-```bash
-npm run prepare:gallery-upload -- \
-  --config data/gallery-export-config.json \
-  --out /private/tmp/sora-gallery-upload-prod
-```
-
-`--out` には空のディレクトリを指定してください。
-
-作成後は `rclone` で `videos/` と `thumbnails/` を R2 にコピーします。
-
-```bash
-rclone copy /private/tmp/sora-gallery-upload-prod/videos r2:sora-gallery-media/videos
-rclone copy /private/tmp/sora-gallery-upload-prod/thumbnails r2:sora-gallery-media/thumbnails
-```
-
-## 更新差分を作成
-
-前回公開済みの `sora-gallery/public/videos.json` と次回 export 結果を比較して、追加・削除・JSONのみ変更を分けた同期計画を作成できます。
+前回公開済みの `sora-gallery/public/videos.json` がある場合は、同期計画を作ります。
 
 ```bash
 npm run plan:gallery-sync -- \
@@ -102,11 +67,67 @@ npm run plan:gallery-sync -- \
 
 出力:
 
-- `videos.json`: 次回公開する `public/videos.json`
+- `videos.json`: 次に `sora-gallery/public/videos.json` へ反映する JSON
 - `upload-manifest.json`: R2 へ追加アップロードする動画
 - `delete-manifest.json`: R2 から削除する動画
 - `changed-metadata.json`: タグや prompt など JSON だけが変わった動画
 - `unchanged.json`: 変更なしの動画
 - `videos/`, `thumbnails/`: 追加アップロード対象だけをコピーしたディレクトリ
 
-`upload-manifest.json` が空でなければ `videos/` と `thumbnails/` を R2 にアップロードします。`delete-manifest.json` が空でなければ、対象 object を R2 から削除します。`changed-metadata.json` だけが変わっている場合は R2 を触らず、`videos.json` の更新と `sora-gallery` 側の検証・デプロイだけを行います。
+`upload-manifest.json` が空でなければ、追加分を R2 にアップロードします。
+
+```bash
+rclone copy /private/tmp/sora-gallery-sync/videos r2:sora-gallery-media/videos
+rclone copy /private/tmp/sora-gallery-sync/thumbnails r2:sora-gallery-media/thumbnails
+```
+
+`delete-manifest.json` が空でなければ、記載された object key を R2 から削除します。
+
+最後に `/private/tmp/sora-gallery-sync/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
+
+## 初回公開
+
+前回の `videos.json` がない場合は、アップロード用ディレクトリを作成します。
+
+```bash
+npm run prepare:gallery-upload -- \
+  --config data/gallery-export-config.json \
+  --out /private/tmp/sora-gallery-upload
+```
+
+`--out` には空のディレクトリを指定してください。作成後、動画とサムネイルを R2 にアップロードします。
+
+```bash
+rclone copy /private/tmp/sora-gallery-upload/videos r2:sora-gallery-media/videos
+rclone copy /private/tmp/sora-gallery-upload/thumbnails r2:sora-gallery-media/thumbnails
+```
+
+その後、`/private/tmp/sora-gallery-upload/videos.json` を `sora-gallery/public/videos.json` へ反映します。
+
+## JSON だけ確認する
+
+R2 へのコピーを作らず、公開 JSON の内容だけ確認する場合は `export:gallery` を使います。
+
+```bash
+npm run export:gallery -- \
+  --config data/gallery-export-config.json \
+  --out ../sora-gallery/public/videos.json \
+  --dry-run
+```
+
+`--dry-run` を外すと `videos.json` と `data/gallery-export-manifest.json` を更新します。
+
+## サムネイル未生成の対応
+
+公開候補にサムネイルがない場合、export / prepare / sync はエラーになります。エラーに表示された `http://localhost:3000/video/...` を player で開き、サムネイルが生成されてから同じコマンドを再実行してください。
+
+## manifest の役割
+
+この公開フローでは、役割の違う manifest を2つ使います。
+
+| ファイル | 役割 |
+| --- | --- |
+| `<videosDir>/_metadata/manifest.json` | ローカル動画アーカイブの目録 |
+| `data/gallery-export-manifest.json` | ローカル動画 ID と公開 UUID / object key の対応表 |
+
+`public/videos.json` の `id` と URL は公開 UUID ベースです。`gen_xxx`、ローカルパス、ローカルアカウント名は出力しません。
