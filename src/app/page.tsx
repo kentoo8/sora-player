@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, memo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef, memo, type ReactNode } from 'react';
 
 type Video = {
   id: string;
@@ -285,6 +285,7 @@ export default function Home() {
   const isNavigatingHistoryRef = useRef(false);
   const shouldScrollToActiveRef = useRef(false);
   const skipSearchFocusRef = useRef(false);
+  const initialSortOrderRef = useRef(sortOrder);
 
   // searchQueryが変わったときに、入力中でなければフィルタリング用クエリを更新
   useEffect(() => {
@@ -356,14 +357,14 @@ export default function Home() {
   const currentVideoId = videos[currentIndex]?.id;
   const currentPlayableIndex = playableVideos.findIndex(v => v.id === currentVideoId);
 
-  const captureNavigationSnapshot = (): NavigationSnapshot => ({
+  const captureNavigationSnapshot = useCallback((): NavigationSnapshot => ({
     videoId: currentVideoId,
     showThumbnailGrid,
     searchQuery,
     activeSearchQuery,
     activeTag,
     galleryScrollTop: galleryScrollRef.current?.scrollTop ?? 0
-  });
+  }), [activeSearchQuery, activeTag, currentVideoId, searchQuery, showThumbnailGrid]);
 
   const isSameNavigationSnapshot = (a: NavigationSnapshot, b: NavigationSnapshot) => (
     a.videoId === b.videoId &&
@@ -373,16 +374,16 @@ export default function Home() {
     a.activeTag === b.activeTag
   );
 
-  const pushNavigationSnapshot = () => {
+  const pushNavigationSnapshot = useCallback(() => {
     const snapshot = captureNavigationSnapshot();
     const lastSnapshot = backHistoryRef.current[backHistoryRef.current.length - 1];
     if (!lastSnapshot || !isSameNavigationSnapshot(lastSnapshot, snapshot)) {
       backHistoryRef.current.push(snapshot);
     }
     forwardHistoryRef.current = [];
-  };
+  }, [captureNavigationSnapshot]);
 
-  const applyNavigationSnapshot = (snapshot: NavigationSnapshot) => {
+  const applyNavigationSnapshot = useCallback((snapshot: NavigationSnapshot) => {
     setSearchQuery(snapshot.searchQuery);
     setActiveSearchQuery(snapshot.activeSearchQuery);
     setActiveTag(snapshot.activeTag);
@@ -405,9 +406,9 @@ export default function Home() {
         }
       });
     }
-  };
+  }, [videos]);
 
-  const goBackInNavigationHistory = () => {
+  const goBackInNavigationHistory = useCallback(() => {
     const previousSnapshot = backHistoryRef.current.pop();
     if (!previousSnapshot) return;
 
@@ -424,9 +425,9 @@ export default function Home() {
     requestAnimationFrame(() => {
       isNavigatingHistoryRef.current = false;
     });
-  };
+  }, [applyNavigationSnapshot, captureNavigationSnapshot, currentVideoId, showThumbnailGrid]);
 
-  const goForwardInNavigationHistory = () => {
+  const goForwardInNavigationHistory = useCallback(() => {
     const nextSnapshot = forwardHistoryRef.current.pop();
     if (!nextSnapshot) return;
 
@@ -443,7 +444,7 @@ export default function Home() {
     requestAnimationFrame(() => {
       isNavigatingHistoryRef.current = false;
     });
-  };
+  }, [applyNavigationSnapshot, captureNavigationSnapshot, currentVideoId, showThumbnailGrid]);
 
   useEffect(() => {
     filteredVideosRef.current = filteredVideos;
@@ -477,25 +478,25 @@ export default function Home() {
     return all;
   }, [selectedVideos]);
 
-  const jumpToPlayableIndex = (targetIndex: number) => {
+  const jumpToPlayableIndex = useCallback((targetIndex: number) => {
     const targetVideo = playableVideos[targetIndex];
     if (!targetVideo) return;
     const originalIndex = videos.findIndex(v => v.id === targetVideo.id);
     if (originalIndex !== -1) {
       setCurrentIndex(originalIndex);
     }
-  };
+  }, [playableVideos, videos]);
 
-  const wrapPlayableIndex = (targetIndex: number) => {
+  const wrapPlayableIndex = useCallback((targetIndex: number) => {
     if (playableVideos.length === 0) return 0;
     return ((targetIndex % playableVideos.length) + playableVideos.length) % playableVideos.length;
-  };
+  }, [playableVideos.length]);
 
-  const jumpToWrappedPlayableIndex = (targetIndex: number) => {
+  const jumpToWrappedPlayableIndex = useCallback((targetIndex: number) => {
     jumpToPlayableIndex(wrapPlayableIndex(targetIndex));
-  };
+  }, [jumpToPlayableIndex, wrapPlayableIndex]);
 
-  const jumpByPageStep = (delta: number) => {
+  const jumpByPageStep = useCallback((delta: number) => {
     if (playableVideos.length === 0) return;
     const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
     const lastIndex = playableVideos.length - 1;
@@ -506,7 +507,7 @@ export default function Home() {
     }
 
     jumpToPlayableIndex(baseIndex === 0 ? lastIndex : Math.max(baseIndex + delta, 0));
-  };
+  }, [currentPlayableIndex, jumpToPlayableIndex, playableVideos.length]);
 
   const changeSortOrder = (nextSortOrder: SortOrder) => {
     if (nextSortOrder === sortOrder) return;
@@ -576,7 +577,34 @@ export default function Home() {
     }
   };
 
-  const updateSelectionFromPointer = () => {
+  const selectVideoDuringDrag = useCallback((filteredIdx: number) => {
+    if (!isSelectionDraggingRef.current) return;
+    const anchor = selectionDragAnchorRef.current;
+    if (anchor === -1) return;
+
+    const dragVideos = filteredVideosRef.current;
+    const start = Math.min(anchor, filteredIdx);
+    const end = Math.max(anchor, filteredIdx);
+
+    // ベースで起点が選択中なら範囲も選択方向、未選択なら解除方向
+    const anchorVideo = dragVideos[anchor];
+    const anchorSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : true;
+
+    // ベースの選択状態をコピーし、範囲内を追加 or 除外
+    const next = new Set(selectionDragBaseIdsRef.current);
+    for (let i = start; i <= end; i++) {
+      const vid = dragVideos[i];
+      if (!vid) continue;
+      if (anchorSelected) {
+        next.add(vid.id);
+      } else {
+        next.delete(vid.id);
+      }
+    }
+    setSelectedVideoIds(next);
+  }, []);
+
+  const updateSelectionFromPointer = useCallback(() => {
     const pointer = selectionPointerRef.current;
     if (!pointer) return;
 
@@ -587,9 +615,9 @@ export default function Home() {
     if (Number.isInteger(filteredIdx)) {
       selectVideoDuringDrag(filteredIdx);
     }
-  };
+  }, [selectVideoDuringDrag]);
 
-  const startSelectionAutoScroll = () => {
+  const startSelectionAutoScroll = useCallback(() => {
     if (selectionAutoScrollFrameRef.current !== null) return;
 
     const tick = () => {
@@ -620,34 +648,7 @@ export default function Home() {
     };
 
     selectionAutoScrollFrameRef.current = requestAnimationFrame(tick);
-  };
-
-  const selectVideoDuringDrag = (filteredIdx: number) => {
-    if (!isSelectionDraggingRef.current) return;
-    const anchor = selectionDragAnchorRef.current;
-    if (anchor === -1) return;
-
-    const dragVideos = filteredVideosRef.current;
-    const start = Math.min(anchor, filteredIdx);
-    const end = Math.max(anchor, filteredIdx);
-
-    // ベースで起点が選択中なら範囲も選択方向、未選択なら解除方向
-    const anchorVideo = dragVideos[anchor];
-    const anchorSelected = anchorVideo ? selectionDragBaseIdsRef.current.has(anchorVideo.id) : true;
-
-    // ベースの選択状態をコピーし、範囲内を追加 or 除外
-    const next = new Set(selectionDragBaseIdsRef.current);
-    for (let i = start; i <= end; i++) {
-      const vid = dragVideos[i];
-      if (!vid) continue;
-      if (anchorSelected) {
-        next.add(vid.id);
-      } else {
-        next.delete(vid.id);
-      }
-    }
-    setSelectedVideoIds(next);
-  };
+  }, [updateSelectionFromPointer]);
 
   const saveTagsForSelectedVideos = async () => {
     if (selectedVideos.length === 0) return;
@@ -882,7 +883,7 @@ export default function Home() {
       window.removeEventListener('pointercancel', stopSelectionDrag);
       stopSelectionDrag();
     };
-  }, []);
+  }, [startSelectionAutoScroll, updateSelectionFromPointer]);
 
   // 検索中は検索結果だけを再生対象にする。現在の動画が結果外なら先頭の結果へ移動する。
   useEffect(() => {
@@ -925,7 +926,7 @@ export default function Home() {
           ...video,
           tags: tagMap[video.filename] || []
         }));
-        setVideos(sortVideosByTimestamp(videosWithTags, sortOrder));
+        setVideos(sortVideosByTimestamp(videosWithTags, initialSortOrderRef.current));
         setLoading(false);
         clearTimeout(loadingDetailTimer);
         setRenderGrid(true); // 初期ロード完了時にギャラリーをマウントしておく
@@ -1028,16 +1029,17 @@ export default function Home() {
     };
   }, [videos]); // currentIndex を除外：切り替えでループを中断させない
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     if (playableVideos.length === 0) return;
     const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
     jumpToWrappedPlayableIndex(baseIndex + 1);
-  };
-  const goToPrev = () => {
+  }, [currentPlayableIndex, jumpToWrappedPlayableIndex, playableVideos.length]);
+
+  const goToPrev = useCallback(() => {
     if (playableVideos.length === 0) return;
     const baseIndex = currentPlayableIndex === -1 ? 0 : currentPlayableIndex;
     jumpToWrappedPlayableIndex(baseIndex - 1);
-  };
+  }, [currentPlayableIndex, jumpToWrappedPlayableIndex, playableVideos.length]);
 
   const handleIndexJump = () => {
     const num = parseInt(editValue, 10);
@@ -1170,7 +1172,22 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [videos, currentIndex, playableVideos, currentPlayableIndex, showThumbnailGrid, searchQuery, activeSearchQuery, activeTag]);
+  }, [
+    videos,
+    currentIndex,
+    playableVideos,
+    currentPlayableIndex,
+    showThumbnailGrid,
+    searchQuery,
+    activeSearchQuery,
+    activeTag,
+    goBackInNavigationHistory,
+    goForwardInNavigationHistory,
+    goToNext,
+    goToPrev,
+    jumpByPageStep,
+    jumpToPlayableIndex,
+  ]);
 
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
   useEffect(() => {
@@ -1216,7 +1233,16 @@ export default function Home() {
     // passive: false にして preventDefault() を有効にする
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [videos.length, showThumbnailGrid, playableVideos, currentPlayableIndex]); // goToNext/goToPrev が再生対象に依存するため
+  }, [
+    videos.length,
+    showThumbnailGrid,
+    playableVideos,
+    currentPlayableIndex,
+    goBackInNavigationHistory,
+    goForwardInNavigationHistory,
+    goToNext,
+    goToPrev,
+  ]); // goToNext/goToPrev が再生対象に依存するため
 
   // Escapeキーでギャラリーを閉じる
   useEffect(() => {
