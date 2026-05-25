@@ -64,6 +64,10 @@ function toApiVideo(video: LibraryVideo, videosDir: string) {
   };
 }
 
+function runtimeScanDuplicateStrategy(duplicateStrategy: string) {
+  return duplicateStrategy === 'manual' ? 'prefer-newest' : duplicateStrategy;
+}
+
 export async function GET() {
   try {
     const library = await loadLibrary();
@@ -90,7 +94,10 @@ export async function GET() {
       library.printReportSummary(result.report);
     } else {
       console.log('[API] 動画 manifest がないため、一時スキャンで表示します。正式運用では npm run generate:manifest を実行してください。');
-      const result = library.scanVideoLibrary({ videosDir, duplicateStrategy: options.duplicateStrategy });
+      const result = library.scanVideoLibrary({
+        videosDir,
+        duplicateStrategy: runtimeScanDuplicateStrategy(options.duplicateStrategy),
+      });
       sourceVideos = result.videos;
       library.printReportSummary(result.report);
     }
@@ -146,7 +153,10 @@ export async function PUT(request: Request) {
     const options = library.resolveLibraryOptions({ cwd: process.cwd() });
     const source = fs.existsSync(options.manifestPath)
       ? library.readVideoManifestWithExistingFiles(options.manifestPath, options.videosDir).videos.find((video) => video.id === id)
-      : library.scanVideoLibrary({ videosDir: options.videosDir, duplicateStrategy: options.duplicateStrategy }).videos.find((video) => video.id === id);
+      : library.scanVideoLibrary({
+        videosDir: options.videosDir,
+        duplicateStrategy: runtimeScanDuplicateStrategy(options.duplicateStrategy),
+      }).videos.find((video) => video.id === id);
 
     if (!source) {
       return NextResponse.json({ error: 'FILE_NOT_FOUND', id }, { status: 404 });

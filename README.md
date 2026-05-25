@@ -133,7 +133,7 @@ Sora2のエクスポートファイルをローカルで閲覧するための動
 - `data/tags.json` はローカル個人データとして Git の管理対象外です。バックアップしたい場合はこのファイルをコピーしてください。
 - 動画 manifest は `videosDir` 配下の `_metadata/manifest.json` に保存される、ローカル動画アーカイブの正規化済み目録です。
 - サムネイルは player で閲覧しているうちに `_thumbnails/gen_xxx.webp` として生成されます。
-- player は動画 manifest があればそれを優先して読みます。manifest がない場合は一時的にスキャンして表示しますが、manifest は自動生成しません。
+- player は動画 manifest があればそれを優先して読みます。manifest がない場合は一時的にスキャンして表示しますが、manifest は自動生成しません。一時スキャンでは表示継続を優先し、重複した動画 ID は新しい方を選びます。重複を手動確認したい場合は `npm run generate:manifest` を実行してください。
 
 ## sora-gallery 向け公開データの書き出し
 公開用 JSON の生成手順は [docs/gallery-publish.md](docs/gallery-publish.md) に分けています。ローカル動画アーカイブの「動画 manifest」と、公開 UUID を安定させる `data/gallery-export-manifest.json` は別物です。
