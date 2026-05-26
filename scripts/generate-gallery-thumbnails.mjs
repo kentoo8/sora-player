@@ -281,6 +281,9 @@ export function printGalleryThumbnailSummary(result) {
   if (result.generated > 0 && result.failed.length === 0) {
     console.log('Next: npm run generate:manifest');
   }
+  if (result.failed.length === 0) {
+    console.log('Generate gallery thumbnails succeeded!');
+  }
 }
 
 export function main() {

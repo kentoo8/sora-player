@@ -552,6 +552,7 @@ export function main() {
     const counts = countExcludedTags(excluded);
     console.log(`Excluded tags: ${formatTagCounts(counts)}`);
   }
+  console.log('Export gallery succeeded!');
 }
 
 export function countExcludedTags(excluded) {

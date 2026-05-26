@@ -271,6 +271,7 @@ export function main() {
   if (options.dryRun) {
     console.log('Dry run: no files copied');
   }
+  console.log('Plan gallery sync succeeded!');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

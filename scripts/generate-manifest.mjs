@@ -95,6 +95,7 @@ export function main() {
   console.log(`動画数: ${result.manifest.videos.length}`);
   console.log(`report: ${options.reportPath}`);
   printReportSummary(result.report);
+  console.log('Generate manifest succeeded!');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
