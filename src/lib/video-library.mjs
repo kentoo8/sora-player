@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const VIDEO_MANIFEST_VERSION = 1;
-export const DEFAULT_DUPLICATE_STRATEGY = 'manual';
+export const DEFAULT_DUPLICATE_STRATEGY = 'prefer-oldest';
 export const DUPLICATE_STRATEGIES = new Set(['manual', 'prefer-oldest', 'prefer-newest']);
 export const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 export const ENCODING_LEN = ENCODING.length;

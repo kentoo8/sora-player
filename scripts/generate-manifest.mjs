@@ -19,7 +19,7 @@ Options:
   --videos-dir <path>                 Source videos directory. Default: config.json videosDir, VIDEOS_DIR, or ./videos
   --out <path>                        Video manifest path. Default: <videosDir>/_metadata/manifest.json
   --report <path>                     Scan report path. Default: <videosDir>/_reports/scan-report.json
-  --duplicate-strategy <strategy>     manual, prefer-oldest, or prefer-newest. Default: manual
+  --duplicate-strategy <strategy>     manual, prefer-oldest, or prefer-newest. Default: prefer-oldest
   --help                              Show this help.
 `);
 }
