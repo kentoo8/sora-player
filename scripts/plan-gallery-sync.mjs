@@ -6,9 +6,10 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import {
   buildExport,
+  buildMissingSourceVideosError,
+  buildMissingThumbnailsError,
   countExcludedTags,
   formatTagCounts,
-  formatMissingSourceVideos,
   readManifest,
   readSourceVideos,
   readTags,
@@ -187,16 +188,18 @@ export function main() {
   });
 
   if (missingSourceVideos.length > 0) {
-    throw new Error(
-      `公開候補のタグが付いていますが、動画 manifest に存在しない動画があります: ${missingSourceVideos.length}\n` +
-        `${formatMissingSourceVideos(missingSourceVideos)}\n` +
-        '先に npm run generate:manifest を再実行し、動画ファイル欠落または孤立タグを確認してください。',
-    );
+    throw new Error(buildMissingSourceVideosError(missingSourceVideos, {
+      tagsPath: options.tags,
+      sourceManifest,
+      videosDir,
+    }));
   }
 
   if (missingThumbnails.length > 0) {
-    const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
-    throw new Error(`公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n${examples}`);
+    throw new Error(buildMissingThumbnailsError(missingThumbnails, {
+      sourceManifest,
+      videosDir,
+    }));
   }
 
   const plan = buildSyncPlan({ previous, next: exported });

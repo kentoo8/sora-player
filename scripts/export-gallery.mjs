@@ -405,7 +405,6 @@ export function buildExport({ sourceVideos, tagsByFilename, manifest, options })
       missingThumbnails.push({
         id: source.localKey,
         videoPath: source.videoPath || source.relativePath,
-        playerUrl: `http://localhost:3000/video/${encodeURIComponent(source.localKey)}`,
       });
     }
 
@@ -429,6 +428,54 @@ export function formatMissingSourceVideos(missingSourceVideos) {
     .slice(0, 10)
     .map((item) => `- ${item.id} tags=${item.tags.join(', ')}`)
     .join('\n');
+}
+
+export function buildMissingSourceVideosError(missingSourceVideos, { tagsPath, sourceManifest, videosDir } = {}) {
+  const examples = formatMissingSourceVideos(missingSourceVideos);
+  const moreCount = missingSourceVideos.length > 10 ? `\n...他 ${missingSourceVideos.length - 10} 件` : '';
+  const tagsPathLine = tagsPath ? `\nタグファイル: ${tagsPath}` : '';
+  const sourceManifestLine = sourceManifest ? `\n動画 manifest: ${sourceManifest}` : '';
+  const videosDirLine = videosDir ? `\n動画フォルダ: ${videosDir}` : '';
+
+  return (
+    `公開候補タグが付いているのに、動画 manifest に存在しない動画があります: ${missingSourceVideos.length}\n` +
+    `${examples}${moreCount}\n\n` +
+    'これは多くの場合、data/tags.json にタグだけ残っていて、対応する動画ファイルが動画フォルダにない状態です。' +
+    `${tagsPathLine}${sourceManifestLine}${videosDirLine}\n\n` +
+    '次にやること:\n' +
+    '1. この動画を公開したい場合: 動画ファイルを動画フォルダへ戻してから、npm run generate:manifest を再実行してください。\n' +
+    '2. この動画を公開しない場合: data/tags.json から上記 ID のタグ項目を削除するか、その項目に meta:no-public を付けてください。\n' +
+    '3. どちらか対応した後、同じ gallery export / upload / sync コマンドを再実行してください。'
+  );
+}
+
+export function formatMissingThumbnails(missingThumbnails) {
+  return missingThumbnails
+    .slice(0, 10)
+    .map((item) => `- ${item.id} search: ${item.id}`)
+    .join('\n');
+}
+
+export function buildMissingThumbnailsError(missingThumbnails, { videosDir, sourceManifest } = {}) {
+  const examples = formatMissingThumbnails(missingThumbnails);
+  const moreCount = missingThumbnails.length > 10 ? `\n...他 ${missingThumbnails.length - 10} 件` : '';
+  const sourceManifestLine = sourceManifest ? `\n動画 manifest: ${sourceManifest}` : '';
+  const videosDirLine = videosDir ? `\n動画フォルダ: ${videosDir}` : '';
+
+  return (
+    `公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n` +
+    `${examples}${moreCount}\n\n` +
+    'sora-gallery は公開用 thumbnailUrl が必須なので、サムネイルがない動画は export / upload / sync できません。' +
+    `${sourceManifestLine}${videosDirLine}\n\n` +
+    '次にやること:\n' +
+    '1. この動画を公開したい場合: start.command で開くか、別ターミナルで npm run dev を実行して sora-player を起動してください。\n' +
+    '   ブラウザで http://localhost:3000 を開き、まず数分待ってください。減らなくなったら、上記 ID を検索バーに1件ずつ貼り付けます。\n' +
+    '   検索結果のカードまたは動画が表示された状態で数秒待つと、その動画のサムネイルが生成されます。\n' +
+    '   全体放置だけでは止まることがあります。目安は自動生成分が 100 件で 5〜10 分、残ったものは個別確認です。\n' +
+    '2. まとめて確認する場合: manifest 生成時の scan report にある missingThumbnails も確認してください。\n' +
+    '3. この動画を公開しない場合: 対象動画の公開候補タグを外すか、meta:no-public を付けてから再実行してください。\n' +
+    '4. サムネイル生成後は npm run generate:manifest -- --duplicate-strategy prefer-oldest を再実行し、同じ gallery export / upload / sync コマンドを再実行してください。'
+  );
 }
 
 export function isPrivatePrefixTag(tag, prefixes) {
@@ -473,16 +520,18 @@ export function main() {
   const { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = buildExport({ sourceVideos, tagsByFilename, manifest, options });
 
   if (missingSourceVideos.length > 0) {
-    throw new Error(
-      `公開候補のタグが付いていますが、動画 manifest に存在しない動画があります: ${missingSourceVideos.length}\n` +
-        `${formatMissingSourceVideos(missingSourceVideos)}\n` +
-        '先に npm run generate:manifest を再実行し、動画ファイル欠落または孤立タグを確認してください。',
-    );
+    throw new Error(buildMissingSourceVideosError(missingSourceVideos, {
+      tagsPath: options.tags,
+      sourceManifest,
+      videosDir,
+    }));
   }
 
   if (missingThumbnails.length > 0) {
-    const examples = missingThumbnails.slice(0, 10).map((item) => `- ${item.id} ${item.playerUrl}`).join('\n');
-    throw new Error(`公開候補のサムネイルが未生成です: ${missingThumbnails.length}\n${examples}`);
+    throw new Error(buildMissingThumbnailsError(missingThumbnails, {
+      sourceManifest,
+      videosDir,
+    }));
   }
 
   if (!options.dryRun) {
