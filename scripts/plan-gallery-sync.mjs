@@ -22,6 +22,10 @@ import {
   findSourceById,
   parseArgs as parsePrepareArgs,
 } from './prepare-gallery-upload.mjs';
+import {
+  generateMissingGalleryThumbnails,
+  printGalleryThumbnailSummary,
+} from './generate-gallery-thumbnails.mjs';
 
 function printUsage() {
   console.log(`Usage:
@@ -35,6 +39,7 @@ Options:
   --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
   --tags <path>                 Local tags file path. Default: data/tags.json
   --videos-dir <path>           Source videos directory. Default: config.json videosDir, VIDEOS_DIR, or ./videos
+  --fix-thumbnails              Generate missing candidate thumbnails before continuing.
   --dry-run                     Print summary without copying files or writing manifest.
   --help                        Show this help.
 `);
@@ -48,6 +53,8 @@ function parseArgs(argv) {
     if (arg === '--previous') {
       options.previous = path.resolve(process.cwd(), requireValue(arg, next));
       index += 1;
+    } else if (arg === '--fix-thumbnails') {
+      options.fixThumbnails = true;
     }
   }
   return options;
@@ -177,15 +184,16 @@ export function main() {
 
   const previous = readVideosJson(options.previous);
   const sourceManifest = resolveSourceManifest(options);
-  const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
+  let sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
-  const { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = buildExport({
+  let exportResult = buildExport({
     sourceVideos,
     tagsByFilename,
     manifest,
     options,
   });
+  let { exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = exportResult;
 
   if (missingSourceVideos.length > 0) {
     throw new Error(buildMissingSourceVideosError(missingSourceVideos, {
@@ -193,6 +201,31 @@ export function main() {
       sourceManifest,
       videosDir,
     }));
+  }
+
+  if (missingThumbnails.length > 0 && options.fixThumbnails) {
+    const thumbnailResult = generateMissingGalleryThumbnails({
+      sourceVideos,
+      missingThumbnails,
+      videosDir,
+      seek: 0.1,
+    });
+    printGalleryThumbnailSummary({
+      ...thumbnailResult,
+      sourceManifest,
+      exportResult,
+    });
+    if (thumbnailResult.failed.length > 0) {
+      throw new Error('未生成サムネイルを自動生成できない動画があります。上記の Failed 一覧を確認してください。');
+    }
+    sourceVideos = readSourceVideos({ videosDir, sourceManifest });
+    exportResult = buildExport({
+      sourceVideos,
+      tagsByFilename,
+      manifest,
+      options,
+    });
+    ({ exported, missingThumbnails, missingSourceVideos, candidates, excluded, orphanTagEntries } = exportResult);
   }
 
   if (missingThumbnails.length > 0) {

@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
   buildMissingSourceVideosError,
   buildMissingThumbnailsError,
 } from '../scripts/export-gallery.mjs';
+import {
+  generateMissingGalleryThumbnails,
+} from '../scripts/generate-gallery-thumbnails.mjs';
 
 test('buildMissingSourceVideosError explains actionable recovery steps', () => {
   const message = buildMissingSourceVideosError(
@@ -45,14 +51,32 @@ test('buildMissingThumbnailsError explains how to generate or exclude thumbnails
   assert.match(message, /公開候補のサムネイルが未生成です/);
   assert.match(message, /gen_01ka19fcz4e1cr9pnwgx5hsejm/);
   assert.match(message, /thumbnailUrl が必須/);
-  assert.match(message, /start\.command/);
-  assert.match(message, /npm run dev/);
+  assert.match(message, /npm run generate:gallery-thumbnails -- --config data\/gallery-export-config\.json/);
+  assert.match(message, /npm run generate:manifest/);
+  assert.match(message, /同じ gallery export \/ upload \/ sync コマンドを再実行/);
   assert.match(message, /http:\/\/localhost:3000/);
-  assert.match(message, /減らなくなったら/);
-  assert.match(message, /search: gen_01ka19fcz4e1cr9pnwgx5hsejm/);
-  assert.match(message, /上記 ID を検索バーに1件ずつ貼り付け/);
-  assert.match(message, /全体放置だけでは止まることがあります/);
+  assert.match(message, /videoPath=/);
   assert.match(message, /公開候補タグを外す/);
   assert.match(message, /meta:no-public/);
-  assert.match(message, /npm run generate:manifest -- --duplicate-strategy prefer-oldest/);
+  assert.match(message, /--fix-thumbnails/);
+});
+
+test('generateMissingGalleryThumbnails does not overwrite existing thumbnails', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sora-player-thumbnails-'));
+  const thumbnailDir = path.join(dir, '_thumbnails');
+  const id = 'gen_01ka19fcz4e1cr9pnwgx5hsejm';
+  const thumbnailPath = path.join(thumbnailDir, `${id}.webp`);
+  fs.mkdirSync(thumbnailDir, { recursive: true });
+  fs.writeFileSync(thumbnailPath, 'existing');
+
+  const result = generateMissingGalleryThumbnails({
+    videosDir: dir,
+    sourceVideos: [{ localKey: id, fullPath: path.join(dir, `${id}.mp4`) }],
+    missingThumbnails: [{ id }],
+  });
+
+  assert.equal(result.existing, 1);
+  assert.equal(result.generated, 0);
+  assert.deepEqual(result.failed, []);
+  assert.equal(fs.readFileSync(thumbnailPath, 'utf8'), 'existing');
 });

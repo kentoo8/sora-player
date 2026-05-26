@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "node --test",
     "generate:manifest": "node scripts/generate-manifest.mjs",
+    "generate:gallery-thumbnails": "node scripts/generate-gallery-thumbnails.mjs",
     "export:gallery": "node scripts/export-gallery.mjs",
     "prepare:gallery-upload": "node scripts/prepare-gallery-upload.mjs",
     "plan:gallery-sync": "node scripts/plan-gallery-sync.mjs",

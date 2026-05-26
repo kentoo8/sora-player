@@ -452,7 +452,7 @@ export function buildMissingSourceVideosError(missingSourceVideos, { tagsPath, s
 export function formatMissingThumbnails(missingThumbnails) {
   return missingThumbnails
     .slice(0, 10)
-    .map((item) => `- ${item.id} search: ${item.id}`)
+    .map((item) => `- ${item.id} videoPath=${item.videoPath}`)
     .join('\n');
 }
 
@@ -468,13 +468,12 @@ export function buildMissingThumbnailsError(missingThumbnails, { videosDir, sour
     'sora-gallery は公開用 thumbnailUrl が必須なので、サムネイルがない動画は export / upload / sync できません。' +
     `${sourceManifestLine}${videosDirLine}\n\n` +
     '次にやること:\n' +
-    '1. この動画を公開したい場合: start.command で開くか、別ターミナルで npm run dev を実行して sora-player を起動してください。\n' +
-    '   ブラウザで http://localhost:3000 を開き、まず数分待ってください。減らなくなったら、上記 ID を検索バーに1件ずつ貼り付けます。\n' +
-    '   検索結果のカードまたは動画が表示された状態で数秒待つと、その動画のサムネイルが生成されます。\n' +
-    '   全体放置だけでは止まることがあります。目安は自動生成分が 100 件で 5〜10 分、残ったものは個別確認です。\n' +
-    '2. まとめて確認する場合: manifest 生成時の scan report にある missingThumbnails も確認してください。\n' +
-    '3. この動画を公開しない場合: 対象動画の公開候補タグを外すか、meta:no-public を付けてから再実行してください。\n' +
-    '4. サムネイル生成後は npm run generate:manifest -- --duplicate-strategy prefer-oldest を再実行し、同じ gallery export / upload / sync コマンドを再実行してください。'
+    '1. npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json\n' +
+    '2. npm run generate:manifest\n' +
+    '3. 同じ gallery export / upload / sync コマンドを再実行してください。\n\n' +
+    'ブラウザで確認したい場合だけ http://localhost:3000 を開き、上記 ID を検索してください。\n' +
+    'この動画を公開しない場合は、対象動画の公開候補タグを外すか、meta:no-public を付けてから再実行してください。\n' +
+    'plan:gallery-sync では --fix-thumbnails を付けると、未生成サムネイルの生成を試してから同期計画を続行できます。'
   );
 }
 

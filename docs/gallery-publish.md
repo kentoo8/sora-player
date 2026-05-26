@@ -13,7 +13,7 @@
      "videosDir": "~/Documents/videos/sora2-data-files",
      "manifestPath": "_metadata/manifest.json",
      "reportPath": "_reports/scan-report.json",
-     "duplicateStrategy": "manual"
+     "duplicateStrategy": "prefer-oldest"
    }
    ```
 
@@ -47,11 +47,20 @@ npm run generate:manifest
 - `<videosDir>/_metadata/manifest.json`
 - `<videosDir>/_reports/scan-report.json`
 
-同じ `gen_xxx` の動画が複数ある場合、既定では処理を止めます。意図して自動解決する場合だけ、次のいずれかで再実行します。
+同じ `gen_xxx` の動画が複数ある場合、既定では古い動画を採用します。確認しながら止めたい場合や、新しい動画を採用したい場合だけ明示指定します。
 
 ```bash
-npm run generate:manifest -- --duplicate-strategy prefer-oldest
+npm run generate:manifest -- --duplicate-strategy manual
 npm run generate:manifest -- --duplicate-strategy prefer-newest
+```
+
+## 公開候補サムネイルを生成
+
+公開候補のサムネイルは CLI でまとめて生成できます。既存のサムネイルは上書きしません。
+
+```bash
+npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json
+npm run generate:manifest
 ```
 
 ## 通常更新
@@ -62,7 +71,8 @@ npm run generate:manifest -- --duplicate-strategy prefer-newest
 npm run plan:gallery-sync -- \
   --config data/gallery-export-config.json \
   --previous ../sora-gallery/public/videos.json \
-  --out /private/tmp/sora-gallery-sync
+  --out /private/tmp/sora-gallery-sync \
+  --fix-thumbnails
 ```
 
 出力:
@@ -119,7 +129,14 @@ npm run export:gallery -- \
 
 ## サムネイル未生成の対応
 
-公開候補にサムネイルがない場合、export / prepare / sync はエラーになります。エラーに表示された `http://localhost:3000/video/...` を player で開き、サムネイルが生成されてから同じコマンドを再実行してください。
+公開候補にサムネイルがない場合、export / prepare / sync はエラーになります。まず次のコマンドでまとめて生成してください。
+
+```bash
+npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json
+npm run generate:manifest
+```
+
+`plan:gallery-sync` では `--fix-thumbnails` を付けると、未生成サムネイルの生成を試してから同期計画を続行できます。
 
 ## manifest の役割
 
