@@ -30,7 +30,9 @@ function requireValue(option, value) {
 }
 
 function parseArgs(argv) {
-  const options = {};
+  const options = {
+    duplicateStrategy: 'prefer-oldest',
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];

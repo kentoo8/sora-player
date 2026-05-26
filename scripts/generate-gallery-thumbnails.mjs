@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
@@ -77,6 +78,80 @@ function ffmpegMissing(result) {
   return result.error && result.error.code === 'ENOENT';
 }
 
+function commandExists(command) {
+  const result = spawnSync('which', [command], {
+    encoding: 'utf8',
+  });
+  return result.status === 0;
+}
+
+function encodeWebpWithCwebp(inputPath, outputPath, tempDir) {
+  if (!commandExists('cwebp')) {
+    return { ok: false, reason: 'WEBP_ENCODER_NOT_FOUND' };
+  }
+  const tempOutputPath = path.join(tempDir, `${path.basename(outputPath, '.webp')}.webp`);
+  const result = spawnSync('cwebp', [
+    '-quiet',
+    '-q',
+    '82',
+    inputPath,
+    '-o',
+    tempOutputPath,
+  ], { encoding: 'utf8' });
+  if (result.status !== 0 || !fs.existsSync(tempOutputPath)) {
+    return {
+      ok: false,
+      reason: result.stderr?.trim() ? `WEBP_ENCODE_FAILED: ${result.stderr.trim().split('\n')[0]}` : 'WEBP_ENCODE_FAILED',
+    };
+  }
+  fs.renameSync(tempOutputPath, outputPath);
+  return { ok: true };
+}
+
+function capturePngFrame({ source, outputPath, seek }) {
+  const result = spawnSync('ffmpeg', [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-y',
+    '-ss',
+    String(seek),
+    '-i',
+    source.fullPath,
+    '-frames:v',
+    '1',
+    '-an',
+    '-vf',
+    'scale=640:-1',
+    outputPath,
+  ], { encoding: 'utf8' });
+
+  if (ffmpegMissing(result)) {
+    return { ok: false, reason: 'FFMPEG_NOT_FOUND' };
+  }
+  if (result.status !== 0 || !fs.existsSync(outputPath)) {
+    return {
+      ok: false,
+      reason: result.stderr?.trim() ? `VIDEO_DECODE_FAILED: ${result.stderr.trim().split('\n')[0]}` : 'VIDEO_DECODE_FAILED',
+    };
+  }
+  return { ok: true };
+}
+
+function generateWebpThumbnailViaPng({ source, outputPath, seek }) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sora-player-thumbnail-'));
+  const pngPath = path.join(tempDir, `${source.localKey}.png`);
+  try {
+    const capture = capturePngFrame({ source, outputPath: pngPath, seek });
+    if (!capture.ok) return { status: 'failed', reason: capture.reason };
+    const encode = encodeWebpWithCwebp(pngPath, outputPath, tempDir);
+    if (!encode.ok) return { status: 'failed', reason: encode.reason };
+    return { status: 'generated' };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function generateWebpThumbnail({ source, outputPath, seek }) {
   if (fs.existsSync(outputPath)) return { status: 'existing' };
   if (!fs.existsSync(source.fullPath)) {
@@ -109,6 +184,9 @@ function generateWebpThumbnail({ source, outputPath, seek }) {
     return { status: 'failed', reason: 'FFMPEG_NOT_FOUND' };
   }
   if (result.status !== 0 || !fs.existsSync(outputPath)) {
+    if (result.stderr?.includes("Unknown encoder 'libwebp'")) {
+      return generateWebpThumbnailViaPng({ source, outputPath, seek });
+    }
     return {
       status: 'failed',
       reason: result.stderr?.trim() ? `VIDEO_DECODE_FAILED: ${result.stderr.trim().split('\n')[0]}` : 'VIDEO_DECODE_FAILED',
