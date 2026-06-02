@@ -56,7 +56,15 @@
 
    1行目で削除対象を確認し、問題がなければ2行目で削除します。
 
-4. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
+4. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
+
+   ```bash
+   cp "$OUTPUT/videos.json" ../sora-gallery/public/videos.json
+   cd ../sora-gallery
+   npm run validate:remote
+   npm run build
+   npx wrangler pages deploy dist --project-name sora-gallery
+   ```
 
 ## 初めて公開
 
@@ -77,7 +85,15 @@
    rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```
 
-3. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映します。
+3. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
+
+   ```bash
+   cp "$OUTPUT/videos.json" ../sora-gallery/public/videos.json
+   cd ../sora-gallery
+   npm run validate:remote
+   npm run build
+   npx wrangler pages deploy dist --project-name sora-gallery
+   ```
 
 ## JSON だけ確認する
 
