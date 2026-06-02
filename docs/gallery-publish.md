@@ -12,6 +12,7 @@
 export R2_TARGET="r2:sora-gallery-media"
 export PAGES_PROJECT="sora-gallery"
 export PUBLIC_URL="https://sora-gallery.pages.dev"
+export CLOUDFLARE_ACCOUNT_ID="<Cloudflare account ID>"
 ```
 
 1. リポジトリ直下の `videos/` 以外に動画アーカイブを置く場合だけ、`config.json.example` を参考に `config.json` を用意し、`videosDir` を設定します。
