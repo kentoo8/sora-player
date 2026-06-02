@@ -1,7 +1,4 @@
 {
   "videosDir": "path/to/your/videos",
-  "manifestPath": "_metadata/manifest.json",
-  "reportPath": "_reports/scan-report.json",
-  "duplicateStrategy": "prefer-oldest",
   "port": 3000
 }

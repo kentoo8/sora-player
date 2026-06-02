@@ -6,33 +6,23 @@
 
 ## 事前準備
 
-1. `config.json` で動画アーカイブの場所を設定します。
-
-   ```json
-   {
-     "videosDir": "~/Documents/videos/sora2-data-files",
-     "manifestPath": "_metadata/manifest.json",
-     "reportPath": "_reports/scan-report.json",
-     "duplicateStrategy": "prefer-oldest"
-   }
-   ```
+1. リポジトリ直下の `videos/` 以外に動画アーカイブを置く場合だけ、`config.json.example` を参考に `config.json` を用意し、`videosDir` を設定します。
 
 2. `data/gallery-export-config.example.json` を参考に、`data/gallery-export-config.json` を用意します。
 
+   通常タグでまとめて公開候補に含めたい場合は `includeTags`、除外したい場合は `excludeTags` に追加します。
+
    ```json
-   {
-     "version": 1,
-     "publicBaseUrl": "https://cdn.example.com/sora",
-     "includeTags": ["meta:public", "公開したいタグ1", "公開したいタグ2"],
-     "excludeTags": ["meta:no-public", "除外したいタグ1", "除外したいタグ2"],
-     "privateTagPrefixes": ["meta:"],
-     "allowedMetaTags": ["meta:public", "meta:no-public"]
-   }
+   "includeTags": ["meta:public", "風景"],
+   "excludeTags": ["meta:no-public", "確認中"]
    ```
 
-   `includeTags` に一致するタグを持つ動画だけが公開候補になります。`excludeTags` は公開候補から除外するためのタグです。
+3. 個別に調整したい動画には、player 上で公開制御用のタグを付けます。
 
-3. 公開したい動画に player 上で `meta:public` を付けます。公開したくない動画には `meta:no-public` を付けます。
+   - `meta:public`: 公開候補に含めます。
+   - `meta:no-public`: 公開候補から除外します。
+
+   `meta:` で始まるタグは sora-gallery に表示するタグには含まれません。
 
 ## 動画 manifest を更新
 
