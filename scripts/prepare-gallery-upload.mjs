@@ -5,6 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
+import { defaultGalleryOutputDir, prepareGalleryOutputDir } from '../src/lib/gallery-output.mjs';
 import {
   applyConfig,
   buildMissingSourceVideosError,
@@ -24,13 +25,13 @@ import {
 
 function printUsage() {
   console.log(`Usage:
-  npm run prepare:gallery-upload -- --include-tag public --out /private/tmp/sora-gallery-upload
+  npm run prepare:gallery-upload -- --include-tag public
 
 Options:
   --config <path>               Export config path. Default: data/gallery-export-config.json if it exists.
   --include-tag <tag>           Required. Only videos with this local tag are prepared. Can be repeated.
   --exclude-tag <tag>           Videos with this local tag are excluded. Can be repeated.
-  --out <path>                  Required. Upload staging directory.
+  --out <path>                  Upload staging directory. Default: OS temporary directory.
   --manifest <path>             Public ID manifest path. Default: data/gallery-export-manifest.json
   --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
   --tags <path>                 Local tags file path. Default: data/tags.json
@@ -56,6 +57,7 @@ export function parseArgs(argv, extraOptions = {}) {
     privateTagPrefixes: ['meta:'],
     allowedMetaTags: ['meta:public', 'meta:no-public'],
     publicBaseUrl: 'https://example.com',
+    out: defaultGalleryOutputDir('gallery-upload'),
     dryRun: false,
   };
   const cliSpecified = {
@@ -143,7 +145,6 @@ export function requireValue(option, value) {
 
 export function validateOptions(options) {
   if (options.help) return;
-  if (!options.out) throw new Error('--out is required');
   if (options.includeTags.length === 0) throw new Error('--include-tag is required to avoid accidental full export');
   if (!/^https:\/\//.test(options.publicBaseUrl)) throw new Error('--public-base-url must start with https://');
 }
@@ -239,6 +240,7 @@ export function main() {
     }));
   }
 
+  if (!options.dryRun) prepareGalleryOutputDir(options.out, 'gallery-upload');
   const copied = options.dryRun ? [] : copyPreparedFiles({ exported, sourceVideos, manifest, outDir: options.out });
   if (!options.dryRun) {
     writeJson(options.manifest, manifest);

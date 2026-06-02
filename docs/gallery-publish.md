@@ -32,20 +32,20 @@
 npm run plan:gallery-sync -- \
   --config data/gallery-export-config.json \
   --previous ../sora-gallery/public/videos.json \
-  --out /private/tmp/sora-gallery-sync \
   --fix-thumbnails
 ```
 
-追加する動画とサムネイルを R2 にアップロードします。
+出力先は OS の一時ディレクトリです。同じコマンドを繰り返し実行できます。追加する動画とサムネイルを R2 にアップロードします。
 
 ```bash
-rclone copy /private/tmp/sora-gallery-sync/videos r2:sora-gallery-media/videos
-rclone copy /private/tmp/sora-gallery-sync/thumbnails r2:sora-gallery-media/thumbnails
+OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
+rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
+rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
 ```
 
-動画を削除した場合は、`/private/tmp/sora-gallery-sync/delete-manifest.json` に記載された object key を R2 から削除します。
+動画を削除した場合は、`$OUTPUT/delete-manifest.json` に記載された object key を R2 から削除します。
 
-最後に `/private/tmp/sora-gallery-sync/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
+最後に `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
 
 ## 初めて公開
 
@@ -53,18 +53,18 @@ rclone copy /private/tmp/sora-gallery-sync/thumbnails r2:sora-gallery-media/thum
 
 ```bash
 npm run prepare:gallery-upload -- \
-  --config data/gallery-export-config.json \
-  --out /private/tmp/sora-gallery-upload
+  --config data/gallery-export-config.json
 ```
 
-`--out` には空のディレクトリを指定してください。作成後、動画とサムネイルを R2 にアップロードします。
+動画とサムネイルを R2 にアップロードします。
 
 ```bash
-rclone copy /private/tmp/sora-gallery-upload/videos r2:sora-gallery-media/videos
-rclone copy /private/tmp/sora-gallery-upload/thumbnails r2:sora-gallery-media/thumbnails
+OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
+rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
+rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
 ```
 
-その後、`/private/tmp/sora-gallery-upload/videos.json` を `sora-gallery/public/videos.json` へ反映します。
+その後、`$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映します。
 
 ## JSON だけ確認する
 

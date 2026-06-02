@@ -27,14 +27,15 @@ import {
   printGalleryThumbnailSummary,
 } from './generate-gallery-thumbnails.mjs';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
+import { defaultGalleryOutputDir, prepareGalleryOutputDir } from '../src/lib/gallery-output.mjs';
 
 function printUsage() {
   console.log(`Usage:
-  npm run plan:gallery-sync -- --config data/gallery-export-config.json --previous ../sora-gallery/public/videos.json --out /private/tmp/sora-gallery-sync
+  npm run plan:gallery-sync -- --config data/gallery-export-config.json --previous ../sora-gallery/public/videos.json
 
 Options:
   --previous <path>             Required. Previous published public/videos.json.
-  --out <path>                  Required. Sync plan output directory.
+  --out <path>                  Sync plan output directory. Default: OS temporary directory.
   --config <path>               Export config path. Default: data/gallery-export-config.json if it exists.
   --manifest <path>             Public ID manifest path. Default: data/gallery-export-manifest.json
   --source-manifest <path>      Video manifest path. Default: config manifestPath or <videosDir>/_metadata/manifest.json
@@ -48,6 +49,7 @@ Options:
 
 function parseArgs(argv) {
   const options = parsePrepareArgs(argv, { allowUnknown: true });
+  if (!argv.includes('--out')) options.out = defaultGalleryOutputDir('gallery-sync');
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
@@ -71,7 +73,6 @@ function requireValue(option, value) {
 function validateOptions(options) {
   if (options.help) return;
   if (!options.previous) throw new Error('--previous is required');
-  if (!options.out) throw new Error('--out is required');
   if (options.includeTags.length === 0) throw new Error('--include-tag is required to avoid accidental full export');
   if (!/^https:\/\//.test(options.publicBaseUrl)) throw new Error('--public-base-url must start with https://');
 }
@@ -239,6 +240,7 @@ export function main() {
   }
 
   const plan = buildSyncPlan({ previous, next: exported });
+  if (!options.dryRun) prepareGalleryOutputDir(options.out, 'gallery-sync');
   const uploadManifest = options.dryRun
     ? plan.upload.map((video) => ({ id: video.id }))
     : copyUploadFiles({ upload: plan.upload, sourceVideos, manifest, outDir: options.out });
