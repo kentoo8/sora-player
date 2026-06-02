@@ -6,6 +6,14 @@
 
 ## 事前準備
 
+この手順では、現在の個人運用で使っている R2 と Cloudflare Pages の値を明示して実行します。
+
+```bash
+export R2_TARGET="r2:sora-gallery-media"
+export PAGES_PROJECT="sora-gallery"
+export PUBLIC_URL="https://sora-gallery.pages.dev"
+```
+
 1. リポジトリ直下の `videos/` 以外に動画アーカイブを置く場合だけ、`config.json.example` を参考に `config.json` を用意し、`videosDir` を設定します。
 
 2. `data/gallery-export-config.example.json` を参考に、`data/gallery-export-config.json` を用意します。
@@ -43,8 +51,8 @@
 
    ```bash
    export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
-   rclone copy -P "$OUTPUT/videos" r2:sora-gallery-media/videos
-   rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   rclone copy -P "$OUTPUT/videos" "$R2_TARGET/videos"
+   rclone copy -P "$OUTPUT/thumbnails" "$R2_TARGET/thumbnails"
    ```
 
 3. 同期計画の結果が `Delete: 1` 以上の場合は、削除対象を確認してから R2 へ反映します。`Delete: 0` の場合はこの手順を飛ばします。
@@ -59,7 +67,7 @@
 4. R2 全体のファイル数と容量を確認します。
 
    ```bash
-   rclone size r2:sora-gallery-media
+   rclone size "$R2_TARGET"
    ```
 
 5. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
@@ -69,8 +77,10 @@
    cd ../sora-gallery
    npm run validate:remote
    npm run build
-   npx wrangler pages deploy dist --project-name sora-gallery
+   npx wrangler pages deploy dist --project-name "$PAGES_PROJECT"
    ```
+
+   反映先は `$PUBLIC_URL` です。
 
 ## 初めて公開
 
@@ -87,14 +97,14 @@
 
    ```bash
    export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
-   rclone copy -P "$OUTPUT/videos" r2:sora-gallery-media/videos
-   rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   rclone copy -P "$OUTPUT/videos" "$R2_TARGET/videos"
+   rclone copy -P "$OUTPUT/thumbnails" "$R2_TARGET/thumbnails"
    ```
 
 3. R2 全体のファイル数と容量を確認します。
 
    ```bash
-   rclone size r2:sora-gallery-media
+   rclone size "$R2_TARGET"
    ```
 
 4. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
@@ -104,8 +114,10 @@
    cd ../sora-gallery
    npm run validate:remote
    npm run build
-   npx wrangler pages deploy dist --project-name sora-gallery
+   npx wrangler pages deploy dist --project-name "$PAGES_PROJECT"
    ```
+
+   反映先は `$PUBLIC_URL` です。
 
 ## JSON だけ確認する
 

@@ -48,6 +48,10 @@ export function readObjectKeys(manifestPath) {
   return items.flatMap((item) => [item.videoObjectKey, item.thumbnailObjectKey]).filter(Boolean);
 }
 
+export function resolveR2Target(env = process.env) {
+  return env.R2_TARGET || 'r2:sora-gallery-media';
+}
+
 export function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -55,6 +59,7 @@ export function main() {
     return;
   }
   const keys = readObjectKeys(options.manifest);
+  const r2Target = resolveR2Target();
   console.log(`Delete targets: ${keys.length}`);
   for (const key of keys) console.log(`- ${key}`);
   if (!options.apply) {
@@ -62,7 +67,7 @@ export function main() {
     return;
   }
   for (const key of keys) {
-    const result = spawnSync('rclone', ['deletefile', `r2:sora-gallery-media/${key}`], { stdio: 'inherit' });
+    const result = spawnSync('rclone', ['deletefile', `${r2Target}/${key}`], { stdio: 'inherit' });
     if (result.status !== 0) throw new Error(`Failed to delete R2 object: ${key}`);
   }
   console.log('Delete gallery objects succeeded!');

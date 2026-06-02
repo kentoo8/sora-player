@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { parseArgs, readObjectKeys } from '../scripts/delete-gallery-objects.mjs';
+import { parseArgs, readObjectKeys, resolveR2Target } from '../scripts/delete-gallery-objects.mjs';
 import { defaultGalleryOutputDir } from '../src/lib/gallery-output.mjs';
 
 test('parseArgs defaults to the gallery sync delete manifest', () => {
@@ -25,4 +25,9 @@ test('readObjectKeys returns video and thumbnail object keys', () => {
     'videos/example.mp4',
     'thumbnails/example.webp',
   ]);
+});
+
+test('resolveR2Target uses an explicit target and keeps the current default', () => {
+  assert.equal(resolveR2Target({ R2_TARGET: 'remote:bucket' }), 'remote:bucket');
+  assert.equal(resolveR2Target({}), 'r2:sora-gallery-media');
 });
