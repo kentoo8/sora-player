@@ -42,12 +42,19 @@
 2. 追加する動画とサムネイルを R2 にアップロードします。
 
    ```bash
-   OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
+   export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
    rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
    rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```
 
-3. 動画を削除した場合は、`$OUTPUT/delete-manifest.json` に記載された object key を R2 から削除します。
+3. 同期計画の結果が `Delete: 1` 以上の場合は、削除対象を確認してから R2 へ反映します。`Delete: 0` の場合はこの手順を飛ばします。
+
+   ```bash
+   npm run delete:gallery-objects
+   npm run delete:gallery-objects -- --apply
+   ```
+
+   1行目で削除対象を確認し、問題がなければ2行目で削除します。
 
 4. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
 
@@ -65,7 +72,7 @@
 2. 動画とサムネイルを R2 にアップロードします。
 
    ```bash
-   OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
+   export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
    rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
    rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```

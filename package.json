@@ -13,6 +13,7 @@
     "export:gallery": "node scripts/export-gallery.mjs",
     "prepare:gallery-upload": "node scripts/prepare-gallery-upload.mjs",
     "plan:gallery-sync": "node scripts/plan-gallery-sync.mjs",
+    "delete:gallery-objects": "node scripts/delete-gallery-objects.mjs",
     "open": "open http://localhost:3000 || start http://localhost:3000"
   },
   "dependencies": {
