@@ -7,6 +7,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import {
   readVideoManifestWithExistingFiles,
+  refreshVideoManifest,
   resolveLibraryOptions,
 } from '../src/lib/video-library.mjs';
 
@@ -443,7 +444,7 @@ export function buildMissingSourceVideosError(missingSourceVideos, { tagsPath, s
     'これは多くの場合、data/tags.json にタグだけ残っていて、対応する動画ファイルが動画フォルダにない状態です。' +
     `${tagsPathLine}${sourceManifestLine}${videosDirLine}\n\n` +
     '次にやること:\n' +
-    '1. この動画を公開したい場合: 動画ファイルを動画フォルダへ戻してから、npm run generate:manifest を再実行してください。\n' +
+    '1. この動画を公開したい場合: 動画ファイルを動画フォルダへ戻してください。\n' +
     '2. この動画を公開しない場合: data/tags.json から上記 ID のタグ項目を削除するか、その項目に meta:no-public を付けてください。\n' +
     '3. どちらか対応した後、同じ gallery export / upload / sync コマンドを再実行してください。'
   );
@@ -469,8 +470,7 @@ export function buildMissingThumbnailsError(missingThumbnails, { videosDir, sour
     `${sourceManifestLine}${videosDirLine}\n\n` +
     '次にやること:\n' +
     '1. npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json\n' +
-    '2. npm run generate:manifest\n' +
-    '3. 同じ gallery export / upload / sync コマンドを再実行してください。\n\n' +
+    '2. 同じ gallery export / upload / sync コマンドを再実行してください。\n\n' +
     'ブラウザで確認したい場合だけ http://localhost:3000 を開き、上記 ID を検索してください。\n' +
     'この動画を公開しない場合は、対象動画の公開候補タグを外すか、meta:no-public を付けてから再実行してください。\n' +
     'plan:gallery-sync では --fix-thumbnails を付けると、未生成サムネイルの生成を試してから同期計画を続行できます。'
@@ -513,6 +513,7 @@ export function main() {
   }
 
   const sourceManifest = resolveSourceManifest(options);
+  refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);

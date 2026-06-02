@@ -26,6 +26,7 @@ import {
   generateMissingGalleryThumbnails,
   printGalleryThumbnailSummary,
 } from './generate-gallery-thumbnails.mjs';
+import { refreshVideoManifest } from '../src/lib/video-library.mjs';
 
 function printUsage() {
   console.log(`Usage:
@@ -184,6 +185,7 @@ export function main() {
 
   const previous = readVideosJson(options.previous);
   const sourceManifest = resolveSourceManifest(options);
+  refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   let sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
@@ -218,6 +220,7 @@ export function main() {
     if (thumbnailResult.failed.length > 0) {
       throw new Error('未生成サムネイルを自動生成できない動画があります。上記の Failed 一覧を確認してください。');
     }
+    refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
     sourceVideos = readSourceVideos({ videosDir, sourceManifest });
     exportResult = buildExport({
       sourceVideos,

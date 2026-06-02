@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { refreshVideoManifest } from '../src/lib/video-library.mjs';
 import {
   applyConfig,
   buildMissingSourceVideosError,
@@ -217,6 +218,7 @@ export function main() {
   }
 
   const sourceManifest = resolveSourceManifest(options);
+  refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);

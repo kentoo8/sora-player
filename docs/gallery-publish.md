@@ -2,7 +2,7 @@
 
 `sora-player` で管理しているローカル動画から、`sora-gallery` の `public/videos.json` と R2 アップロード用ファイルを作る手順です。
 
-通常更新では **動画 manifest 生成 → 同期計画作成 → R2 反映 → sora-gallery 反映** の順に進めます。
+通常更新では **同期計画作成 → R2 反映 → sora-gallery 反映** の順に進めます。
 
 ## 事前準備
 
@@ -23,35 +23,6 @@
    - `meta:no-public`: 公開候補から除外します。
 
    `meta:` で始まるタグは sora-gallery に表示するタグには含まれません。
-
-## 動画 manifest を更新
-
-公開作業の前に、ローカル動画アーカイブの目録を更新します。
-
-```bash
-npm run generate:manifest
-```
-
-既定では以下を更新します。
-
-- `<videosDir>/_metadata/manifest.json`
-- `<videosDir>/_reports/scan-report.json`
-
-同じ `gen_xxx` の動画が複数ある場合、既定では古い動画を採用します。確認しながら止めたい場合や、新しい動画を採用したい場合だけ明示指定します。
-
-```bash
-npm run generate:manifest -- --duplicate-strategy manual
-npm run generate:manifest -- --duplicate-strategy prefer-newest
-```
-
-## 公開候補サムネイルを生成
-
-公開候補のサムネイルは CLI でまとめて生成できます。既存のサムネイルは上書きしません。
-
-```bash
-npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json
-npm run generate:manifest
-```
 
 ## 通常更新
 
@@ -119,11 +90,10 @@ npm run export:gallery -- \
 
 ## サムネイル未生成の対応
 
-公開候補にサムネイルがない場合、export / prepare / sync はエラーになります。まず次のコマンドでまとめて生成してください。
+公開候補にサムネイルがない場合、export / prepare はエラーになります。次のコマンドでまとめて生成してください。動画 manifest も自動更新され、既存のサムネイルは上書きしません。
 
 ```bash
 npm run generate:gallery-thumbnails -- --config data/gallery-export-config.json
-npm run generate:manifest
 ```
 
 `plan:gallery-sync` では `--fix-thumbnails` を付けると、未生成サムネイルの生成を試してから同期計画を続行できます。

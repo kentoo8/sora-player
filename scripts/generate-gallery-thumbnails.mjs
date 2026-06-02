@@ -20,6 +20,9 @@ import {
 import {
   parseArgs as parsePrepareArgs,
 } from './prepare-gallery-upload.mjs';
+import {
+  refreshVideoManifest,
+} from '../src/lib/video-library.mjs';
 
 function printUsage() {
   console.log(`Usage:
@@ -229,6 +232,7 @@ export function loadGalleryThumbnailContext(options) {
   }
 
   const sourceManifest = resolveSourceManifest(options);
+  refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   const sourceVideos = readSourceVideos({ videosDir, sourceManifest });
   const tagsByFilename = readTags(options.tags);
   const manifest = readManifest(options.manifest);
@@ -254,6 +258,7 @@ export function runGalleryThumbnailGeneration(options) {
     videosDir,
     seek: options.seek,
   });
+  refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   return { ...result, videosDir, sourceManifest, exportResult };
 }
 
@@ -277,9 +282,6 @@ export function printGalleryThumbnailSummary(result) {
     for (const item of result.failed) {
       console.log(`- ${item.id} reason=${item.reason}`);
     }
-  }
-  if (result.generated > 0 && result.failed.length === 0) {
-    console.log('Next: npm run generate:manifest');
   }
   if (result.failed.length === 0) {
     console.log('Generate gallery thumbnails succeeded!');

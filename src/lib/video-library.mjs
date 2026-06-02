@@ -377,6 +377,22 @@ export function buildVideoManifest({ videosDir, duplicateStrategy } = {}) {
   };
 }
 
+export function refreshVideoManifest({ videosDir, manifestPath, reportPath, duplicateStrategy } = {}) {
+  const options = resolveLibraryOptions({
+    videosDir,
+    manifestPath,
+    reportPath,
+    duplicateStrategy,
+  });
+  const result = buildVideoManifest({
+    videosDir: options.videosDir,
+    duplicateStrategy: options.duplicateStrategy,
+  });
+  writeJson(options.manifestPath, result.manifest);
+  writeJson(options.reportPath, result.report);
+  return result;
+}
+
 export function readVideoManifest(manifestPath) {
   const manifest = readJson(manifestPath);
   if (!manifest || manifest.version !== VIDEO_MANIFEST_VERSION || !Array.isArray(manifest.videos)) {
