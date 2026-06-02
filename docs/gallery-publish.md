@@ -56,7 +56,13 @@
 
    1行目で削除対象を確認し、問題がなければ2行目で削除します。
 
-4. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
+4. R2 全体のファイル数と容量を確認します。
+
+   ```bash
+   rclone size r2:sora-gallery-media
+   ```
+
+5. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
 
    ```bash
    cp "$OUTPUT/videos.json" ../sora-gallery/public/videos.json
@@ -85,7 +91,13 @@
    rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```
 
-3. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
+3. R2 全体のファイル数と容量を確認します。
+
+   ```bash
+   rclone size r2:sora-gallery-media
+   ```
+
+4. 公開 JSON を `sora-gallery` へ反映し、検証・デプロイします。
 
    ```bash
    cp "$OUTPUT/videos.json" ../sora-gallery/public/videos.json
