@@ -2,7 +2,7 @@
 
 `sora-player` で管理しているローカル動画から、`sora-gallery` の `public/videos.json` と R2 アップロード用ファイルを作る手順です。
 
-通常更新では **同期計画作成 → R2 反映 → sora-gallery 反映** の順に進めます。
+公開内容を更新するときは **同期計画作成 → R2 反映 → sora-gallery 反映** の順に進めます。
 
 ## 事前準備
 
@@ -24,9 +24,9 @@
 
    `meta:` で始まるタグは sora-gallery に表示するタグには含まれません。
 
-## 通常更新
+## 公開内容を更新
 
-前回公開済みの `sora-gallery/public/videos.json` がある場合は、同期計画を作ります。
+すでに公開中の gallery に動画を追加・削除したり、タグや prompt を更新したりする場合は、次のコマンドを実行します。現在公開中の `sora-gallery/public/videos.json` との比較と、同期計画の作成が自動で行われます。
 
 ```bash
 npm run plan:gallery-sync -- \
@@ -36,29 +36,20 @@ npm run plan:gallery-sync -- \
   --fix-thumbnails
 ```
 
-出力:
-
-- `videos.json`: 次に `sora-gallery/public/videos.json` へ反映する JSON
-- `upload-manifest.json`: R2 へ追加アップロードする動画
-- `delete-manifest.json`: R2 から削除する動画
-- `changed-metadata.json`: タグや prompt など JSON だけが変わった動画
-- `unchanged.json`: 変更なしの動画
-- `videos/`, `thumbnails/`: 追加アップロード対象だけをコピーしたディレクトリ
-
-`upload-manifest.json` が空でなければ、追加分を R2 にアップロードします。
+追加する動画とサムネイルを R2 にアップロードします。
 
 ```bash
 rclone copy /private/tmp/sora-gallery-sync/videos r2:sora-gallery-media/videos
 rclone copy /private/tmp/sora-gallery-sync/thumbnails r2:sora-gallery-media/thumbnails
 ```
 
-`delete-manifest.json` が空でなければ、記載された object key を R2 から削除します。
+動画を削除した場合は、`/private/tmp/sora-gallery-sync/delete-manifest.json` に記載された object key を R2 から削除します。
 
 最後に `/private/tmp/sora-gallery-sync/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
 
-## 初回公開
+## 初めて公開
 
-前回の `videos.json` がない場合は、アップロード用ディレクトリを作成します。
+まだ gallery を公開していない場合は、初回アップロード用ディレクトリを作成します。
 
 ```bash
 npm run prepare:gallery-upload -- \
