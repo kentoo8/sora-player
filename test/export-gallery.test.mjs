@@ -9,9 +9,9 @@ import {
   buildMissingThumbnailsError,
 } from '../scripts/export-gallery.mjs';
 import {
-  formatProgress,
   generateMissingGalleryThumbnails,
 } from '../scripts/generate-gallery-thumbnails.mjs';
+import { formatProgress } from '../src/lib/progress.mjs';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
 
 test('buildMissingSourceVideosError explains actionable recovery steps', () => {

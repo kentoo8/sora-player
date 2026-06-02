@@ -23,12 +23,12 @@ import {
   parseArgs as parsePrepareArgs,
 } from './prepare-gallery-upload.mjs';
 import {
-  createThumbnailProgressReporter,
   generateMissingGalleryThumbnails,
   printGalleryThumbnailSummary,
 } from './generate-gallery-thumbnails.mjs';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
 import { defaultGalleryOutputDir, prepareGalleryOutputDir } from '../src/lib/gallery-output.mjs';
+import { createProgressReporter } from '../src/lib/progress.mjs';
 
 function printUsage() {
   console.log(`Usage:
@@ -124,7 +124,7 @@ function assertEmptyDirectory(dirPath) {
   }
 }
 
-function copyUploadFiles({ upload, sourceVideos, manifest, outDir }) {
+function copyUploadFiles({ upload, sourceVideos, manifest, outDir, onProgress }) {
   const videosOutDir = path.join(outDir, 'videos');
   const thumbnailsOutDir = path.join(outDir, 'thumbnails');
   assertEmptyDirectory(videosOutDir);
@@ -133,7 +133,7 @@ function copyUploadFiles({ upload, sourceVideos, manifest, outDir }) {
   fs.mkdirSync(thumbnailsOutDir, { recursive: true });
 
   const copied = [];
-  for (const video of upload) {
+  for (const [index, video] of upload.entries()) {
     const source = findSourceById(sourceVideos, manifest, video.id);
     if (!source) {
       throw new Error(`Missing source for upload video: ${video.id}`);
@@ -154,6 +154,7 @@ function copyUploadFiles({ upload, sourceVideos, manifest, outDir }) {
       videoObjectKey: manifestEntry.videoObjectKey,
       thumbnailObjectKey: manifestEntry.thumbnailObjectKey,
     });
+    onProgress?.({ current: index + 1, total: upload.length, id: video.id });
   }
   return copied;
 }
@@ -213,7 +214,7 @@ export function main() {
       missingThumbnails,
       videosDir,
       seek: 0.1,
-      onProgress: createThumbnailProgressReporter(),
+      onProgress: createProgressReporter('Generating thumbnails'),
     });
     printGalleryThumbnailSummary({
       ...thumbnailResult,
@@ -245,7 +246,13 @@ export function main() {
   if (!options.dryRun) prepareGalleryOutputDir(options.out, 'gallery-sync');
   const uploadManifest = options.dryRun
     ? plan.upload.map((video) => ({ id: video.id }))
-    : copyUploadFiles({ upload: plan.upload, sourceVideos, manifest, outDir: options.out });
+    : copyUploadFiles({
+      upload: plan.upload,
+      sourceVideos,
+      manifest,
+      outDir: options.out,
+      onProgress: createProgressReporter('Copying files'),
+    });
   const deleteManifest = buildDeleteManifest(plan.remove);
 
   if (!options.dryRun) {

@@ -6,6 +6,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
 import { defaultGalleryOutputDir, prepareGalleryOutputDir } from '../src/lib/gallery-output.mjs';
+import { createProgressReporter } from '../src/lib/progress.mjs';
 import {
   applyConfig,
   buildMissingSourceVideosError,
@@ -164,7 +165,7 @@ export function assertWebpThumbnail(source) {
   }
 }
 
-export function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) {
+export function copyPreparedFiles({ exported, sourceVideos, manifest, outDir, onProgress }) {
   const videosOutDir = path.join(outDir, 'videos');
   const thumbnailsOutDir = path.join(outDir, 'thumbnails');
   assertEmptyDirectory(videosOutDir);
@@ -173,7 +174,7 @@ export function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) 
   fs.mkdirSync(thumbnailsOutDir, { recursive: true });
 
   const copied = [];
-  for (const video of exported) {
+  for (const [index, video] of exported.entries()) {
     const source = findSourceById(sourceVideos, manifest, video.id);
     if (!source) {
       throw new Error(`Missing source for exported video: ${video.id}`);
@@ -192,6 +193,7 @@ export function copyPreparedFiles({ exported, sourceVideos, manifest, outDir }) 
       video: videoOutPath,
       thumbnail: thumbnailOutPath,
     });
+    onProgress?.({ current: index + 1, total: exported.length, id: video.id });
   }
   return copied;
 }
@@ -241,7 +243,13 @@ export function main() {
   }
 
   if (!options.dryRun) prepareGalleryOutputDir(options.out, 'gallery-upload');
-  const copied = options.dryRun ? [] : copyPreparedFiles({ exported, sourceVideos, manifest, outDir: options.out });
+  const copied = options.dryRun ? [] : copyPreparedFiles({
+    exported,
+    sourceVideos,
+    manifest,
+    outDir: options.out,
+    onProgress: createProgressReporter('Copying files'),
+  });
   if (!options.dryRun) {
     writeJson(options.manifest, manifest);
     writeJson(path.join(options.out, 'videos.json'), exported);

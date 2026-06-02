@@ -23,6 +23,7 @@ import {
 import {
   refreshVideoManifest,
 } from '../src/lib/video-library.mjs';
+import { createProgressReporter } from '../src/lib/progress.mjs';
 
 function printUsage() {
   console.log(`Usage:
@@ -198,12 +199,6 @@ function generateWebpThumbnail({ source, outputPath, seek }) {
   return { status: 'generated' };
 }
 
-export function formatProgress(current, total, width = 24) {
-  const ratio = total === 0 ? 1 : current / total;
-  const filled = Math.round(ratio * width);
-  return `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}] ${current}/${total}`;
-}
-
 export function generateMissingGalleryThumbnails({ sourceVideos, missingThumbnails, videosDir, seek = 0.1, onProgress }) {
   const failed = [];
   let generated = 0;
@@ -231,18 +226,6 @@ export function generateMissingGalleryThumbnails({ sourceVideos, missingThumbnai
   }
 
   return { generated, existing, failed, outputDir: thumbnailsDir };
-}
-
-export function createThumbnailProgressReporter(stream = process.stdout) {
-  return ({ current, total, id }) => {
-    const line = `Generating thumbnails ${formatProgress(current, total)} ${id}`;
-    if (stream.isTTY) {
-      stream.write(`\r${line}`);
-      if (current === total) stream.write('\n');
-    } else {
-      stream.write(`${line}\n`);
-    }
-  };
 }
 
 export function loadGalleryThumbnailContext(options) {
@@ -277,7 +260,7 @@ export function runGalleryThumbnailGeneration(options) {
     missingThumbnails: exportResult.missingThumbnails,
     videosDir,
     seek: options.seek,
-    onProgress: createThumbnailProgressReporter(),
+    onProgress: createProgressReporter('Generating thumbnails'),
   });
   refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   return { ...result, videosDir, sourceManifest, exportResult };
