@@ -43,8 +43,8 @@
 
    ```bash
    export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
-   rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
-   rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   rclone copy -P "$OUTPUT/videos" r2:sora-gallery-media/videos
+   rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```
 
 3. 同期計画の結果が `Delete: 1` 以上の場合は、削除対象を確認してから R2 へ反映します。`Delete: 0` の場合はこの手順を飛ばします。
@@ -73,8 +73,8 @@
 
    ```bash
    export OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
-   rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
-   rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   rclone copy -P "$OUTPUT/videos" r2:sora-gallery-media/videos
+   rclone copy -P "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
    ```
 
 3. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映します。
