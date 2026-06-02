@@ -26,45 +26,51 @@
 
 ## 公開内容を更新
 
-すでに公開中の gallery に動画を追加・削除したり、タグや prompt を更新したりする場合は、次のコマンドを実行します。現在公開中の `sora-gallery/public/videos.json` との比較と、同期計画の作成が自動で行われます。
+すでに公開中の gallery に動画を追加・削除したり、タグや prompt を更新したりする場合の手順です。
 
-```bash
-npm run plan:gallery-sync -- \
-  --config data/gallery-export-config.json \
-  --previous ../sora-gallery/public/videos.json \
-  --fix-thumbnails
-```
+1. 現在公開中の `sora-gallery/public/videos.json` と比較し、反映用ファイルを生成します。
 
-出力先は OS の一時ディレクトリです。同じコマンドを繰り返し実行できます。追加する動画とサムネイルを R2 にアップロードします。
+   ```bash
+   npm run plan:gallery-sync -- \
+     --config data/gallery-export-config.json \
+     --previous ../sora-gallery/public/videos.json \
+     --fix-thumbnails
+   ```
 
-```bash
-OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
-rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
-rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
-```
+   出力先は OS の一時ディレクトリです。同じコマンドを繰り返し実行できます。
 
-動画を削除した場合は、`$OUTPUT/delete-manifest.json` に記載された object key を R2 から削除します。
+2. 追加する動画とサムネイルを R2 にアップロードします。
 
-最後に `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
+   ```bash
+   OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-sync')")"
+   rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
+   rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   ```
+
+3. 動画を削除した場合は、`$OUTPUT/delete-manifest.json` に記載された object key を R2 から削除します。
+
+4. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映し、`sora-gallery` 側で検証・デプロイします。
 
 ## 初めて公開
 
-まだ gallery を公開していない場合は、初回アップロード用ディレクトリを作成します。
+まだ gallery を公開していない場合の手順です。
 
-```bash
-npm run prepare:gallery-upload -- \
-  --config data/gallery-export-config.json
-```
+1. 初回アップロード用ファイルを生成します。
 
-動画とサムネイルを R2 にアップロードします。
+   ```bash
+   npm run prepare:gallery-upload -- \
+     --config data/gallery-export-config.json
+   ```
 
-```bash
-OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
-rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
-rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
-```
+2. 動画とサムネイルを R2 にアップロードします。
 
-その後、`$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映します。
+   ```bash
+   OUTPUT="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'sora-player-gallery-upload')")"
+   rclone copy "$OUTPUT/videos" r2:sora-gallery-media/videos
+   rclone copy "$OUTPUT/thumbnails" r2:sora-gallery-media/thumbnails
+   ```
+
+3. `$OUTPUT/videos.json` を `sora-gallery/public/videos.json` へ反映します。
 
 ## JSON だけ確認する
 
