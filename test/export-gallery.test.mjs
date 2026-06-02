@@ -9,6 +9,7 @@ import {
   buildMissingThumbnailsError,
 } from '../scripts/export-gallery.mjs';
 import {
+  formatProgress,
   generateMissingGalleryThumbnails,
 } from '../scripts/generate-gallery-thumbnails.mjs';
 import { refreshVideoManifest } from '../src/lib/video-library.mjs';
@@ -80,6 +81,10 @@ test('generateMissingGalleryThumbnails does not overwrite existing thumbnails', 
   assert.equal(result.generated, 0);
   assert.deepEqual(result.failed, []);
   assert.equal(fs.readFileSync(thumbnailPath, 'utf8'), 'existing');
+});
+
+test('formatProgress formats a completed progress bar', () => {
+  assert.equal(formatProgress(2, 2, 4), '[####] 2/2');
 });
 
 test('refreshVideoManifest writes the latest video manifest and scan report', () => {

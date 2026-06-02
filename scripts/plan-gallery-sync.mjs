@@ -23,6 +23,7 @@ import {
   parseArgs as parsePrepareArgs,
 } from './prepare-gallery-upload.mjs';
 import {
+  createThumbnailProgressReporter,
   generateMissingGalleryThumbnails,
   printGalleryThumbnailSummary,
 } from './generate-gallery-thumbnails.mjs';
@@ -212,6 +213,7 @@ export function main() {
       missingThumbnails,
       videosDir,
       seek: 0.1,
+      onProgress: createThumbnailProgressReporter(),
     });
     printGalleryThumbnailSummary({
       ...thumbnailResult,

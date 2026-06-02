@@ -198,17 +198,24 @@ function generateWebpThumbnail({ source, outputPath, seek }) {
   return { status: 'generated' };
 }
 
-export function generateMissingGalleryThumbnails({ sourceVideos, missingThumbnails, videosDir, seek = 0.1 }) {
+export function formatProgress(current, total, width = 24) {
+  const ratio = total === 0 ? 1 : current / total;
+  const filled = Math.round(ratio * width);
+  return `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}] ${current}/${total}`;
+}
+
+export function generateMissingGalleryThumbnails({ sourceVideos, missingThumbnails, videosDir, seek = 0.1, onProgress }) {
   const failed = [];
   let generated = 0;
   let existing = 0;
   const thumbnailsDir = path.join(videosDir, '_thumbnails');
 
-  for (const item of missingThumbnails) {
+  for (const [index, item] of missingThumbnails.entries()) {
     const source = findSourceByLocalKey(sourceVideos, item.id);
     const outputPath = path.join(thumbnailsDir, `${item.id}.webp`);
     if (!source) {
       failed.push({ id: item.id, reason: 'SOURCE_NOT_FOUND_IN_MANIFEST' });
+      onProgress?.({ current: index + 1, total: missingThumbnails.length, id: item.id });
       continue;
     }
 
@@ -220,9 +227,22 @@ export function generateMissingGalleryThumbnails({ sourceVideos, missingThumbnai
     } else {
       failed.push({ id: item.id, reason: result.reason });
     }
+    onProgress?.({ current: index + 1, total: missingThumbnails.length, id: item.id });
   }
 
   return { generated, existing, failed, outputDir: thumbnailsDir };
+}
+
+export function createThumbnailProgressReporter(stream = process.stdout) {
+  return ({ current, total, id }) => {
+    const line = `Generating thumbnails ${formatProgress(current, total)} ${id}`;
+    if (stream.isTTY) {
+      stream.write(`\r${line}`);
+      if (current === total) stream.write('\n');
+    } else {
+      stream.write(`${line}\n`);
+    }
+  };
 }
 
 export function loadGalleryThumbnailContext(options) {
@@ -257,6 +277,7 @@ export function runGalleryThumbnailGeneration(options) {
     missingThumbnails: exportResult.missingThumbnails,
     videosDir,
     seek: options.seek,
+    onProgress: createThumbnailProgressReporter(),
   });
   refreshVideoManifest({ videosDir, manifestPath: sourceManifest });
   return { ...result, videosDir, sourceManifest, exportResult };
