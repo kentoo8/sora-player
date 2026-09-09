@@ -38,6 +38,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [showEnableSound, setShowEnableSound] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [isEditingIndex, setIsEditingIndex] = useState(false);
@@ -851,6 +852,39 @@ export default function Home() {
     }
   }, [isEditingIndex]);
 
+  const playbackRequestRef = useRef(0);
+
+  const playVideo = useCallback((el: HTMLVideoElement, muted: boolean) => {
+    const request = ++playbackRequestRef.current;
+    el.muted = muted;
+    el.play().then(() => {
+      if (request === playbackRequestRef.current && !muted) {
+        setShowEnableSound(false);
+      }
+    }).catch((error: unknown) => {
+      if (request !== playbackRequestRef.current) return;
+      if (!muted && error instanceof DOMException && error.name === 'NotAllowedError') {
+        // ミュート状態の更新後、再生 effect が音なしで再試行する。
+        setShowEnableSound(true);
+        setIsMuted(true);
+      } else if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.log('Playback prevented:', error);
+      }
+    });
+  }, []);
+
+  const changeMuted = useCallback((muted: boolean) => {
+    ++playbackRequestRef.current;
+    setIsMuted(muted);
+    setShowEnableSound(false);
+    const activeId = videos[currentIndex]?.id;
+    const el = activeId ? videoRefs.current[activeId] : null;
+    if (el && !showThumbnailGrid) {
+      // 操作による再生許可を使えるよう、イベント内で直接 play() を呼ぶ。
+      playVideo(el, muted);
+    }
+  }, [videos, currentIndex, showThumbnailGrid, playVideo]);
+
   // キーボード操作（上下キーでの動画切り替え、スペースキーでの再生/一時停止）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -871,7 +905,7 @@ export default function Home() {
 
       // m: ミュートのオンオフ（ギャラリー中でも有効）
       if (e.key === 'm') {
-        setIsMuted(prev => !prev);
+        changeMuted(!isMuted);
         return;
       }
 
@@ -973,6 +1007,8 @@ export default function Home() {
     goToPrev,
     jumpByPageStep,
     jumpToPlayableIndex,
+    isMuted,
+    changeMuted,
   ]);
 
   // マウスホイール・トラックパッド操作（MacBookの二本指スワイプなど）
@@ -1053,16 +1089,15 @@ export default function Home() {
   useEffect(() => {
     if (videos.length === 0) return;
     const activeId = videos[currentIndex]?.id;
+    const playbackRequest = playbackRequestRef;
     
     Object.entries(videoRefs.current).forEach(([id, el]) => {
       if (!el) return;
       if (id === activeId) {
         if (!showThumbnailGrid) {
-          el.muted = isMuted;
-          el.play().catch(e => console.log('Autoplay prevented:', e));
+          playVideo(el, isMuted);
         } else {
-          // ギャラリー表示中は一時停止のみ行い、ミュート状態を変更しないことで
-          // onVolumeChange による isMuted の誤更新を防ぐ
+          // ギャラリー表示中は再生を止める。
           el.pause();
         }
       } else {
@@ -1074,7 +1109,8 @@ export default function Home() {
         }
       }
     });
-  }, [currentIndex, videos, isMuted, showThumbnailGrid]);
+    return () => { ++playbackRequest.current; };
+  }, [currentIndex, videos, isMuted, showThumbnailGrid, playVideo]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const bottomThreshold = window.innerHeight * 0.4; // 下部40%を判定範囲に
@@ -1251,18 +1287,22 @@ export default function Home() {
                 className="h-full w-full object-contain"
                 loop
                 muted={!isActive || isMuted}
-                onVolumeChange={(e) => {
-                  if (!isActive) return;
-                  const target = e.target as HTMLVideoElement;
-                  setIsMuted(target.muted);
-                }}
                 playsInline
                 preload="auto"
-                autoPlay={isActive}
               />
             </div>
           );
         })}
+
+        {showEnableSound && !showThumbnailGrid && (
+          <button
+            type="button"
+            onClick={() => changeMuted(false)}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 rounded-full border border-white/30 bg-black/80 px-6 py-3 text-sm font-medium text-white shadow-lg hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            音を出す
+          </button>
+        )}
 
         {/* Top UI Container */}
         <div className={`absolute top-12 left-8 z-30 transition-opacity duration-300 ${
