@@ -1284,7 +1284,7 @@ export default function Home() {
               <video
                 ref={el => { videoRefs.current[video.id] = el; }}
                 src={video.url}
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain pointer-events-none"
                 loop
                 muted={!isActive || isMuted}
                 playsInline
