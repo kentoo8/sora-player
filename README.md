@@ -9,7 +9,7 @@ Sora2 のエクスポート動画を、ローカルでまとめて見るため�
 ## 準備
 
 1. このリポジトリをダウンロードします（「Code」ボタン→「Download ZIP」）。
-2. [Node.js LTS](https://nodejs.org/) の最新のセキュリティ修正版をインストールします。
+2. [Node.js](https://nodejs.org/) のサポート中のバージョンの最新セキュリティ修正版をインストールします。mise を使う場合は、下記の手順で指定版を準備できます。
 3. `videos/` の下に、Sora2 からエクスポートした動画フォルダを置きます。
 
 ```text
@@ -31,6 +31,18 @@ videos/
 ブラウザが開かない場合は、手動で `http://localhost:3000` を開いてください。
 
 ### コマンドライン
+
+mise を使う場合は、プロジェクトのフォルダで次を実行します。指定版の Node.js を準備し、その版でインストール・起動できます。
+
+```bash
+mise install
+mise exec -- npm ci
+mise exec -- npm run dev
+```
+
+Mac の `start.command` も、mise が見つかる場合は指定版を使います。既に起動中のプレイヤーは、一度終了してから再起動してください。
+
+mise を使わない場合:
 
 ```bash
 npm ci

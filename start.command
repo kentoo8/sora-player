@@ -1,6 +1,11 @@
 #!/bin/bash
 # このスクリプトがあるディレクトリに移動
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
+
+# ダブルクリック起動でもプロジェクトで指定した Node.js を使用する。
+if [ "${1:-}" != "--mise-runtime" ] && command -v mise >/dev/null 2>&1; then
+    exec mise exec -- bash "./$(basename "$0")" --mise-runtime
+fi
 
 echo "------------------------------------------"
 echo "  Sora Player - Startup Script"
