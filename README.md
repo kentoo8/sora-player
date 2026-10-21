@@ -9,7 +9,7 @@ Sora2 のエクスポート動画を、ローカルでまとめて見るため�
 ## 準備
 
 1. このリポジトリをダウンロードします（「Code」ボタン→「Download ZIP」）。
-2. [Node.js LTS](https://nodejs.org/) をインストールします。
+2. [Node.js LTS](https://nodejs.org/) の最新のセキュリティ修正版をインストールします。
 3. `videos/` の下に、Sora2 からエクスポートした動画フォルダを置きます。
 
 ```text
@@ -33,7 +33,7 @@ videos/
 ### コマンドライン
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -66,6 +66,7 @@ npm run open
 
 ## 関連ドキュメント
 公開用ギャラリーの運用手順は [docs/gallery-publish.md](docs/gallery-publish.md) にあります。
+更新後の確認方法と未解決事項は [セキュリティ保守](docs/security-maintenance.md) を参照してください。
 
 ## 補足
 @hio1345は作者のSora2アカウント名でした
