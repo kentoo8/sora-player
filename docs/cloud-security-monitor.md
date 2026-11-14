@@ -9,7 +9,7 @@ Node.js本体はnpm監査の対象外。公式配布一覧のsecurity指定か�
 1. この変更をmainへpushする。
 2. リポジトリのSettingsを開き、左側のSecurity and quality内のAdvanced SecurityでDependency graphとDependabot alertsを有効にする。Dependabot secretsは認証情報の登録画面なので、この設定では使用しない。Dependabotは新しい依存関係の脆弱性を継続して検知する。利用できる設定は管理画面で確認する。
 3. リポジトリのWatchでCustomのIssuesとSecurity alertsを購読する。
-4. GitHubの[通知設定](https://github.com/settings/notifications)で、WatchingのEmailを有効にする。検証済みの通知先メールを選び、Security alertsのメールとActionsの失敗通知も有効にする。
+4. GitHubの[通知設定](https://github.com/settings/notifications)で、Participating, @mentions and customのEmailとOn GitHubを有効にする。検証済みの通知先メールを選び、Security alertsのメールとActionsの失敗通知も有効にする。
 5. Actionsタブで「Sora security monitor」を開く。Run workflowの「受信確認用のテストIssueを作る」を選び実行する。テストIssue、メール、必要ならGitHubアプリの通知を確認し、受信確認後にテストIssueを閉じる。
 6. テスト項目を選ばず通常実行する。実行履歴が成功し、検出があれば監視Issueが作られることを確認する。
 

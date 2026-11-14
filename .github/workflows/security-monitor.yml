@@ -23,8 +23,6 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      MONITOR_REPORT: ${{ runner.temp }}/sora-security-report.json
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -43,10 +41,13 @@ jobs:
         with:
           node-version: ${{ steps.node.outputs.version }}
       - name: Check npm dependencies and official Node.js releases
+        env:
+          MONITOR_REPORT: ${{ runner.temp }}/sora-security-report.json
         run: node .github/scripts/security-monitor.mjs --collect
       - name: Publish meaningful changes to an Issue
         if: always()
         env:
+          MONITOR_REPORT: ${{ runner.temp }}/sora-security-report.json
           GITHUB_TOKEN: ${{ github.token }}
           MONITOR_TEST: ${{ inputs.notification_test == true && 'true' || 'false' }}
         run: node .github/scripts/security-monitor.mjs --publish
