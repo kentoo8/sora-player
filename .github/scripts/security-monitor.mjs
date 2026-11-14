@@ -110,7 +110,7 @@ export async function publish(report, test) {
   }
   if (test) {
     const issue = await api('/issues', 'POST', { title: '【通知テスト】Sora監視のメール受信確認', body: `これは通知経路のテストです。脆弱性検出ではありません。\n\n${runUrl}\n\nGitHubからのメールとアプリ通知が届いたか確認後、このIssueを閉じてください。` });
-    return `テストIssueを作成しました ${issue.html_url}。メール到達は受信側で確認してください。`;
+    return `[テストIssueを開く](${issue.html_url})\n\nメール到達は受信側で確認してください。`;
   }
   const matches = [];
   for (let page = 1; ; page++) {

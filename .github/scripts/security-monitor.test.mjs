@@ -81,7 +81,8 @@ test('test notifications use a separate clearly labelled Issue and preserve the 
     return { ok: true, json: async () => ({ html_url: 'https://github.com/example/project/issues/10' }) };
   };
   try {
-    await publish(healthy, true);
+    const message = await publish(healthy, true);
+    assert.match(message, /\[テストIssueを開く\]\(https:\/\/github\.com\/example\/project\/issues\/10\)\n\nメール/);
     assert.equal(calls.length, 1);
     assert.match(calls[0].body, /通知テスト/);
     assert.doesNotMatch(calls[0].body, /sora-security-monitor:v1/);
