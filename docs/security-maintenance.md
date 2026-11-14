@@ -1,5 +1,7 @@
 # セキュリティ保守
 
+Macを閉じている間の検知とメール通知は[GitHub上の監視手順](cloud-security-monitor.md)を参照する。
+
 ## 更新後の確認
 
 依存関係の再現にはロックファイルを使う。`npm ci` は既存の node_modules を入れ替える。

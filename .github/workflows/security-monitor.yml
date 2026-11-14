@@ -1,0 +1,52 @@
+name: Sora security monitor
+
+on:
+  schedule:
+    # 毎日07:00（日本時間）。GitHubの混雑で遅れる場合があります。
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    inputs:
+      notification_test:
+        description: '受信確認用のテストIssueを作る'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sora-security-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MONITOR_REPORT: ${{ runner.temp }}/sora-security-report.json
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Test monitoring logic
+        run: node --test .github/scripts/security-monitor.test.mjs
+      - name: Read pinned Node.js version
+        id: node
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import { pinnedNode } from './.github/scripts/security-monitor.mjs';
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${pinnedNode(readFileSync('mise.toml', 'utf8'))}\n`);
+          JS
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+      - name: Check npm dependencies and official Node.js releases
+        run: node .github/scripts/security-monitor.mjs --collect
+      - name: Publish meaningful changes to an Issue
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MONITOR_TEST: ${{ inputs.notification_test == true && 'true' || 'false' }}
+        run: node .github/scripts/security-monitor.mjs --publish
