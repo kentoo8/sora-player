@@ -36,7 +36,7 @@ GitHubの定期実行には遅延や実行漏れがある。公開リポジト�
 ## 実装変更時の確認
 
 ```bash
-mise exec -- node --test .github/scripts/security-monitor.test.mjs
+mise exec -- node --test .github/scripts/*.test.mjs
 ```
 
 ローカルで検知処理だけを試す場合は、MONITOR_REPORTに一時ファイルの出力先を指定して`.github/scripts/security-monitor.mjs --collect`を実行する。通知テストはActionsから実行し、実際の受信も確認する。
@@ -48,3 +48,15 @@ mise exec -- node --test .github/scripts/security-monitor.test.mjs
 - [Dependabot alerts](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-alerts)
 - [Node.js公式配布一覧](https://nodejs.org/dist/index.json)
 - [Node.jsサポート期間](https://github.com/nodejs/Release#release-schedule)
+
+## 調査済みの判断を引き継ぐ
+
+`.github/security-assessments.json`に、調査して「待ってよい」と判断した問題の根拠と適用条件を保存する。依存関係・追跡対象のソース/設定、公式アドバイザリの悪用条件と修正情報、依存元の公開版/依存指定がすべて一致する間だけ、通知冒頭に「待ってよい・操作不要」と表示する。リスクの判断と、修正版の有無は分けて扱う。
+
+条件が変わった場合や根拠を取得できなかった場合は、以前の判断を解除して再調査を通知する。未調査の問題も「待ってよい」へ自動分類しない。再調査の通知が届いたら、IssueをCodexへ伝えて、利用経路・悪用条件・更新候補の調査を依頼する。調査後に根拠と適用条件を更新する。
+
+依存元に新しい版が出るだけでも再調査する。新しい版に対象問題の修正が入っているか、互換性とテスト結果を確認してから適用を判断する。GitHub側の処理は通知までを行う。
+
+判断条件の照合は保守的に行い、監視処理を含む追跡済みソース・設定の変更でも再調査になる。文書だけの変更では失効させない。適用条件のハッシュだけを新しい値へ書き換えて、再調査を済ませた扱いにしない。監査不能・公式情報取得不能を安全扱いしない。
+
+根拠の保存と条件の変化も通知の重複判定に含める。同じ状態が続く日はIssueへの書き込みを省略し、待機判断が有効になったときや再調査へ切り替わったときだけ通知する。判定機能を初めて反映した際には、判断を含む新しい形式で一度通知される場合がある。

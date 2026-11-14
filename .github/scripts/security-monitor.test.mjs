@@ -96,7 +96,7 @@ test('notification wording separates development warnings, failures, fixes and r
   const warning = { ...healthy, findings: [{ kind: 'npm', scope: 'development', name: 'minimatch', severity: 'moderate', versions: ['10.2.6'], range: '<11.0.1', fix: true, url: 'https://github.com/advisories/GHSA-g3hv-75wg-m249' }] };
   const text = render(warning, 'https://github.com/example/project/actions/runs/42');
   assert.match(notificationTitle(warning), /開発用ツール/);
-  assert.match(text, /^\*\*開発用ツールに脆弱性の警告があります。/);
+  assert.match(text, /^\*\*開発用ツールの警告について/);
   assert.match(text, /同じ検査結果の日は追加通知しません/);
   assert.match(text, /安全に適用できるかは/);
   assert.doesNotMatch(text, /修正案 true|"isSemVerMajor"/);

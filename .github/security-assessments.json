@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "decision": "wait",
+      "finding": {
+        "kind": "npm",
+        "scope": "development",
+        "url": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+        "name": "minimatch",
+        "severity": "moderate",
+        "range": ">=7.0.0 <11.0.1",
+        "versions": [
+          "10.2.6"
+        ],
+        "fix": true
+      },
+      "sourceHash": "06e774e651e8981d64c4dbd8b3b3c425f7b7d3ab6483fa7d2b34c57cb532488a",
+      "advisoryHash": "4738ba5d237e1a05e866e9122f39aca58b06e6098a24bba23eeb6e24f5fd2031",
+      "upstream": {
+        "@typescript-eslint/typescript-estree": {
+          "version": "8.72.2",
+          "dependencies": {
+            "debug": "^4.4.3",
+            "semver": "^7.7.3",
+            "minimatch": "^10.2.2",
+            "tinyglobby": "^0.2.15",
+            "ts-api-utils": "^2.5.0",
+            "@typescript-eslint/types": "8.72.2",
+            "@typescript-eslint/visitor-keys": "8.72.2",
+            "@typescript-eslint/tsconfig-utils": "8.72.2",
+            "@typescript-eslint/project-service": "8.72.2"
+          }
+        }
+      },
+      "reason": "悪用条件は外部由来の検索パターンを最適化レベル2以上で処理することです。調査した開発用ツールの呼び出しはdotのみを指定し、最適化レベルは既定値1なので、この呼び出しは条件に該当しません。",
+      "action": "現在は追加の操作を行わず、依存元の対応版を待ちます。新しい版や判断条件の変化があれば再調査します。",
+      "evidence": "TypeScript ESLintからminimatchへの依存経路、useProgramFromProjectService.jsの呼び出し、minimatchの既定値、実行用監査0件を確認して判断しました。"
+    }
+  ]
+}

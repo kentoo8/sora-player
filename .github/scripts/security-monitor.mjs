@@ -2,6 +2,7 @@ import { readFile, writeFile, appendFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { assessReport } from './security-assessments.mjs';
 
 const marker = '<!-- sora-security-monitor:v1 -->';
 const indexUrl = 'https://nodejs.org/dist/index.json';
@@ -76,11 +77,18 @@ async function collect() {
   } catch { errors.push('node-official-check-failed'); }
   const runtime = new Set(findings.filter(f => f.scope === 'runtime').map(f => f.url));
   const normalized = findings.filter(f => f.scope !== 'all' || !runtime.has(f.url)).map(f => f.scope === 'all' ? { ...f, scope: errors.includes('npm-audit-runtime-failed') ? 'unconfirmed' : 'development' } : f);
-  return { version, findings: normalized, errors };
+  return assessReport({ version, findings: normalized, errors });
 }
 
 export function fingerprint(report) {
   return createHash('sha256').update(JSON.stringify(report)).digest('hex');
+}
+
+function waitingForFix(report) {
+  return report.findings.length > 0 && report.findings.every(finding =>
+    finding.kind === 'npm' && finding.scope === 'development' &&
+    report.assessments?.some(item => item.url === finding.url && item.status === 'wait')
+  );
 }
 
 export function notificationTitle(report) {
@@ -88,7 +96,8 @@ export function notificationTitle(report) {
   if (report.findings.some(f => f.kind === 'node-eol')) return '【更新が必要】Node.jsのサポート期限が終了';
   if (report.findings.some(f => f.kind === 'node-security-release')) return '【修正版あり】Node.jsの更新を確認してください';
   if (report.findings.some(f => f.scope === 'runtime' || f.scope === 'unconfirmed')) return '【影響確認】実行用または用途未確認の依存関係に脆弱性';
-  if (report.findings.length) return '【更新確認】開発用ツールに脆弱性';
+  if (waitingForFix(report)) return '【待ってよい・操作不要】開発用ツールの対応版待ち';
+  if (report.findings.length) return '【調査が必要】開発用ツールの警告を確認してください';
   return '【解消確認】今回の検査で要対応の検出なし';
 }
 
@@ -107,9 +116,12 @@ export function render(report, runUrl) {
   } else if (report.findings.some(f => f.scope === 'runtime' || f.scope === 'unconfirmed')) {
     conclusion = '実行用、または用途を確認できていない依存関係に脆弱性が見つかりました。';
     action = '利用している版・公開環境・悪用条件を照合し、更新の必要性と優先度を確認してください。';
+  } else if (waitingForFix(report)) {
+    conclusion = '今の構成では対応版を待ってよいと判断しています。追加の操作は不要です。';
+    action = '監視を続けます。依存元の新しい版、判断条件の変化、公式情報の変更があれば再調査を通知します。';
   } else if (report.findings.length) {
-    conclusion = '開発用ツールに脆弱性の警告があります。';
-    action = '依存元の対応版と互換性を確認してください。対応版待ちと判断済みの問題は、その判断に沿って監視を続けてください。';
+    conclusion = '開発用ツールの警告について、利用環境での影響を調べる必要があります。';
+    action = 'このIssueをCodexへ伝え、利用経路・悪用条件・更新候補の調査を依頼してください。';
   }
   const lines = [
     `**${conclusion}**`, '',
@@ -121,6 +133,7 @@ export function render(report, runUrl) {
   const severities = { critical: '緊急（Critical）', high: '高（High）', moderate: '中程度（Moderate）', low: '低（Low）', info: '参考情報' };
   for (const finding of report.findings) {
     if (finding.kind === 'npm') {
+      const assessment = report.assessments?.find(item => item.url === finding.url);
       const scope = { runtime: '実行用依存', development: '開発用ツール', unconfirmed: '用途の区分未確認' }[finding.scope];
       let fix = 'npmから更新案は提示されていません。依存元の対応状況を確認してください。';
       if (finding.fix) fix = 'npmは更新案を提示しています。安全に適用できるかは、依存元の対応と検証結果を確認して判断します。';
@@ -128,6 +141,10 @@ export function render(report, runUrl) {
         fix = `npmの更新候補は${finding.fix.name} ${finding.fix.version}です。互換性の確認と検証が必要です。`;
       }
       lines.push(`- **${finding.name}** — ${scope}、重要度は${severities[finding.severity] || '未確認'}。導入版は${finding.versions.join(', ') || '取得できず'}。`, `  ${fix}`, `  [脆弱性の詳細](${finding.url})`, '');
+      if (assessment) {
+        lines.push(`  **判断の根拠** — ${assessment.reason}`, `  **当面の対応** — ${assessment.action}`, '');
+        if (assessment.evidence) lines.push(`  ${assessment.evidence}`, '');
+      }
     } else if (finding.kind === 'node-security-release') {
       lines.push(`- **Node.js** — 指定版${finding.version}、セキュリティ修正版${finding.fixed}。`, `  [公式の修正内容](https://nodejs.org/en/blog/release/${finding.fixed})`, '');
     } else if (finding.kind === 'node-eol') {
@@ -140,6 +157,8 @@ export function render(report, runUrl) {
     'npm-audit-runtime-failed': '実行用依存の監査に失敗し、用途の区分を確定できませんでした。',
     'node-official-check-failed': 'Node.js公式の修正版またはサポート期限を確認できませんでした。',
     'monitor-collection-failed': '検査結果の収集に失敗しました。',
+    'assessment-evidence-failed': '保存済み判断の根拠となる公式情報を再確認できませんでした。',
+    'assessment-policy-failed': '保存済み判断の条件を確認できませんでした。',
     'monitor-report-missing': '通知に必要な検査結果を取得できませんでした。',
   };
   for (const code of report.errors) lines.push(`- **確認失敗** — ${errors[code] || '詳細は実行結果を確認してください。'}`);

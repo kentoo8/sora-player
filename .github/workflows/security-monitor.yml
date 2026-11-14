@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Test monitoring logic
-        run: node --test .github/scripts/security-monitor.test.mjs
+        run: node --test .github/scripts/*.test.mjs
       - name: Read pinned Node.js version
         id: node
         run: |
