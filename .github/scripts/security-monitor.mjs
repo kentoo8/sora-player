@@ -83,19 +83,67 @@ export function fingerprint(report) {
   return createHash('sha256').update(JSON.stringify(report)).digest('hex');
 }
 
-function render(report, runUrl) {
-  const lines = [`確認したNode.js指定版 \`${report.version || '取得失敗'}\``, '', '[監視の実行結果](' + runUrl + ')', ''];
-  for (const f of report.findings) {
-    if (f.kind === 'npm') {
-      const scope = { runtime: '実行用依存', development: '開発用依存', unconfirmed: '用途の区分未確認' }[f.scope];
-      lines.push(`- ${scope} / ${f.name} / ${f.severity} / 導入版 ${f.versions.join(', ')} / 対象範囲 ${f.range}`, `  根拠 ${f.url}`, `  npmの修正案 ${JSON.stringify(f.fix)}。対応版と互換性を確認してください。`);
-    } else if (f.kind === 'node-security-release') {
-      lines.push(`- Node.js ${f.version}より新しい同一メジャーのセキュリティ修正版 ${f.fixed} があります。`, `  https://nodejs.org/en/blog/release/${f.fixed}`);
-    } else if (f.kind === 'node-eol') lines.push(`- Node.js ${f.version}のサポート期限 ${f.end} を過ぎています。https://github.com/nodejs/Release#release-schedule`);
+export function notificationTitle(report) {
+  if (report.errors.length) return '【確認失敗】Sora監視を確認してください';
+  if (report.findings.some(f => f.kind === 'node-eol')) return '【更新が必要】Node.jsのサポート期限が終了';
+  if (report.findings.some(f => f.kind === 'node-security-release')) return '【修正版あり】Node.jsの更新を確認してください';
+  if (report.findings.some(f => f.scope === 'runtime' || f.scope === 'unconfirmed')) return '【影響確認】実行用または用途未確認の依存関係に脆弱性';
+  if (report.findings.length) return '【更新確認】開発用ツールに脆弱性';
+  return '【解消確認】今回の検査で要対応の検出なし';
+}
+
+export function render(report, runUrl) {
+  let conclusion = '今回の監査で要対応の検出はありません。追加の操作は不要です。';
+  let action = '今後も定期検査を続けます。';
+  if (report.errors.length) {
+    conclusion = '検査を完了できていない項目があります。';
+    action = '下の実行結果で失敗箇所を確認し、通信や設定を確認してから再実行してください。';
+  } else if (report.findings.some(f => f.kind === 'node-eol')) {
+    conclusion = '指定しているNode.jsのサポート期限が終了しています。';
+    action = 'サポート中のNode.jsへの更新候補を検証してください。';
+  } else if (report.findings.some(f => f.kind === 'node-security-release')) {
+    conclusion = '指定版より新しいNode.jsのセキュリティ修正版が公開されています。';
+    action = '修正版の変更内容を確認し、更新候補を検証してください。';
+  } else if (report.findings.some(f => f.scope === 'runtime' || f.scope === 'unconfirmed')) {
+    conclusion = '実行用、または用途を確認できていない依存関係に脆弱性が見つかりました。';
+    action = '利用している版・公開環境・悪用条件を照合し、更新の必要性と優先度を確認してください。';
+  } else if (report.findings.length) {
+    conclusion = '開発用ツールに脆弱性の警告があります。';
+    action = '依存元の対応版と互換性を確認してください。対応版待ちと判断済みの問題は、その判断に沿って監視を続けてください。';
   }
-  for (const code of report.errors) lines.push(`- 確認失敗 \`${code}\`。確認できていない項目があります。実行結果から失敗箇所を確認してください。`);
-  if (!report.findings.length && !report.errors.length) lines.push('今回の監査で要対応の検出はありません。');
-  lines.push('', 'Node.jsの検査元 ' + indexUrl, '公式告知 https://nodejs.org/en/blog/vulnerability/', '', 'この記録は検知結果です。公開サイトへの影響は、公開版・構成・悪用条件を照合して判断してください。');
+  const lines = [
+    `**${conclusion}**`, '',
+    `**次の対応** — ${action}`, '',
+    '同じ検査結果の日は追加通知しません。結果に変化があったときに、このIssueへ記録します。', '',
+    '### 検出した内容', '',
+  ];
+  if (!report.findings.length && !report.errors.length) lines.push('今回の検査で脆弱性や未適用のNode.js修正版の検出はありません。');
+  const severities = { critical: '緊急（Critical）', high: '高（High）', moderate: '中程度（Moderate）', low: '低（Low）', info: '参考情報' };
+  for (const finding of report.findings) {
+    if (finding.kind === 'npm') {
+      const scope = { runtime: '実行用依存', development: '開発用ツール', unconfirmed: '用途の区分未確認' }[finding.scope];
+      let fix = 'npmから更新案は提示されていません。依存元の対応状況を確認してください。';
+      if (finding.fix) fix = 'npmは更新案を提示しています。安全に適用できるかは、依存元の対応と検証結果を確認して判断します。';
+      if (typeof finding.fix === 'object' && finding.fix?.version) {
+        fix = `npmの更新候補は${finding.fix.name} ${finding.fix.version}です。互換性の確認と検証が必要です。`;
+      }
+      lines.push(`- **${finding.name}** — ${scope}、重要度は${severities[finding.severity] || '未確認'}。導入版は${finding.versions.join(', ') || '取得できず'}。`, `  ${fix}`, `  [脆弱性の詳細](${finding.url})`, '');
+    } else if (finding.kind === 'node-security-release') {
+      lines.push(`- **Node.js** — 指定版${finding.version}、セキュリティ修正版${finding.fixed}。`, `  [公式の修正内容](https://nodejs.org/en/blog/release/${finding.fixed})`, '');
+    } else if (finding.kind === 'node-eol') {
+      lines.push(`- **Node.js ${finding.version}** — サポート期限は${finding.end}です。`, '  [公式サポート期間](https://github.com/nodejs/Release#release-schedule)', '');
+    }
+  }
+  const errors = {
+    'node-runtime-mismatch': '検査に使ったNode.jsと指定版が一致しません。',
+    'npm-audit-all-failed': '開発用を含む依存関係の監査に失敗しました。',
+    'npm-audit-runtime-failed': '実行用依存の監査に失敗し、用途の区分を確定できませんでした。',
+    'node-official-check-failed': 'Node.js公式の修正版またはサポート期限を確認できませんでした。',
+    'monitor-collection-failed': '検査結果の収集に失敗しました。',
+    'monitor-report-missing': '通知に必要な検査結果を取得できませんでした。',
+  };
+  for (const code of report.errors) lines.push(`- **確認失敗** — ${errors[code] || '詳細は実行結果を確認してください。'}`);
+  lines.push('', `Node.js指定版は${report.version || '取得できず'}。`, `[検査の実行結果](${runUrl}) · [Node.js公式告知](https://nodejs.org/en/blog/vulnerability/)`);
   return lines.join('\n');
 }
 
@@ -128,12 +176,12 @@ export async function publish(report, test) {
   if (!issue && !report.findings.length && !report.errors.length) return '今回の検査で要対応の検出はありません。';
   const body = `${marker}\n<!-- state:${hash} -->\n${text}`;
   if (!issue) {
-    const created = await api('/issues', 'POST', { title: '【Sora監視】セキュリティ確認', body });
+    const created = await api('/issues', 'POST', { title: notificationTitle(report), body });
     return `監視Issueを作成しました ${created.html_url}`;
   }
   // コメントを先に追加する。途中で失敗した場合は通知漏れより再通知を優先する。
   await api(`/issues/${issue.number}/comments`, 'POST', { body: `監視結果が変わりました。\n\n${text}` });
-  await api(`/issues/${issue.number}`, 'PATCH', { body, state: 'open' });
+  await api(`/issues/${issue.number}`, 'PATCH', { title: notificationTitle(report), body, state: 'open' });
   return `監視Issueを更新しました ${issue.html_url}`;
 }
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pinnedNode, nodeFindings, auditFindings, fingerprint, publish } from './security-monitor.mjs';
+import { pinnedNode, nodeFindings, auditFindings, fingerprint, publish, render, notificationTitle } from './security-monitor.mjs';
 
 const schedule = { v26: { end: '2029-04-30' } };
 const releases = [
@@ -90,4 +90,20 @@ test('test notifications use a separate clearly labelled Issue and preserve the 
     globalThis.fetch = originalFetch;
     process.env = originalEnv;
   }
+});
+
+test('notification wording separates development warnings, failures, fixes and resolution without implying an automatic safe fix', () => {
+  const warning = { ...healthy, findings: [{ kind: 'npm', scope: 'development', name: 'minimatch', severity: 'moderate', versions: ['10.2.6'], range: '<11.0.1', fix: true, url: 'https://github.com/advisories/GHSA-g3hv-75wg-m249' }] };
+  const text = render(warning, 'https://github.com/example/project/actions/runs/42');
+  assert.match(notificationTitle(warning), /開発用ツール/);
+  assert.match(text, /^\*\*開発用ツールに脆弱性の警告があります。/);
+  assert.match(text, /同じ検査結果の日は追加通知しません/);
+  assert.match(text, /安全に適用できるかは/);
+  assert.doesNotMatch(text, /修正案 true|"isSemVerMajor"/);
+  const failed = { ...healthy, errors: ['npm-audit-all-failed'] };
+  assert.match(notificationTitle(failed), /確認失敗/);
+  assert.match(render(failed, ''), /検査を完了できていない/);
+  assert.doesNotMatch(render(failed, ''), /追加の操作は不要|検出はありません/);
+  assert.match(notificationTitle({ ...healthy, findings: [{ kind: 'node-security-release' }] }), /修正版あり/);
+  assert.match(notificationTitle(healthy), /解消確認/);
 });
