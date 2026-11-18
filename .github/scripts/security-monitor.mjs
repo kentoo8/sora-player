@@ -221,7 +221,7 @@ export async function publish(report, test) {
     return `監視Issueを作成しました ${created.html_url}`;
   }
   // コメントを先に追加する。途中で失敗した場合は通知漏れより再通知を優先する。
-  await api(`/issues/${issue.number}/comments`, 'POST', { body: `監視結果が変わりました。\n\n${text}` });
+  await api(`/issues/${issue.number}/comments`, 'POST', { body: `監視の記録を更新しました。\n\n${text}` });
   await api(`/issues/${issue.number}`, 'PATCH', { title: notificationTitle(report), body, state: 'open' });
   return `監視Issueを更新しました ${issue.html_url}`;
 }

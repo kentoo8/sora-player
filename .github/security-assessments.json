@@ -20,7 +20,7 @@
           "isSemVerMajor": true
         }
       },
-      "sourceHash": "004c1555eaa80a34b7b60ce79fb04a5bb3d6730dc145e09513f33ed34855a66b",
+      "sourceHash": "071537e71a868a6e932fecc9985eef1124540cf93808e719c65a1573f38074af",
       "advisoryHash": "f5a942e83d301ad35c6ead5e8872c533f261396503d5ee5f56526d7e2b473bff",
       "upstream": {
         "eslint-config-next": {
