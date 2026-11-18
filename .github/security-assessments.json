@@ -1,4 +1,96 @@
 {
   "version": 1,
-  "rules": []
+  "rules": [
+    {
+      "decision": "wait",
+      "finding": {
+        "kind": "npm",
+        "scope": "development",
+        "url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+        "name": "picomatch",
+        "severity": "high",
+        "range": "<=4.0.7",
+        "versions": [
+          "2.3.2",
+          "4.0.7"
+        ],
+        "fix": {
+          "name": "eslint-config-next",
+          "version": "14.2.35",
+          "isSemVerMajor": true
+        }
+      },
+      "sourceHash": "30af38b4808438bab9bae4e124ee11c62c962d1f88dd7b1cc9e1a8681d7250eb",
+      "advisoryHash": "f5a942e83d301ad35c6ead5e8872c533f261396503d5ee5f56526d7e2b473bff",
+      "upstream": {
+        "eslint-config-next": {
+          "version": "16.4.6",
+          "dependencies": {
+            "globals": "16.4.0",
+            "typescript-eslint": "^8.56.0",
+            "eslint-plugin-react": "^7.37.0",
+            "eslint-plugin-import": "^2.32.0",
+            "eslint-plugin-jsx-a11y": "^6.10.0",
+            "@next/eslint-plugin-next": "16.4.6",
+            "eslint-plugin-react-hooks": "^7.1.0",
+            "eslint-import-resolver-node": "^0.3.6",
+            "eslint-import-resolver-typescript": "^3.5.2"
+          }
+        },
+        "@typescript-eslint/typescript-estree": {
+          "version": "8.73.0",
+          "dependencies": {
+            "debug": "^4.4.3",
+            "semver": "^7.7.3",
+            "minimatch": "^11.0.1",
+            "tinyglobby": "^0.2.15",
+            "ts-api-utils": "^2.5.0",
+            "@typescript-eslint/types": "8.73.0",
+            "@typescript-eslint/visitor-keys": "8.73.0",
+            "@typescript-eslint/tsconfig-utils": "8.73.0",
+            "@typescript-eslint/project-service": "8.73.0"
+          }
+        },
+        "eslint-import-resolver-typescript": {
+          "version": "4.4.5",
+          "dependencies": {
+            "debug": "^4.4.1",
+            "tinyglobby": "^0.2.14",
+            "get-tsconfig": "^4.10.1",
+            "is-bun-module": "^2.0.0",
+            "stable-hash-x": "^0.2.0",
+            "unrs-resolver": "^1.7.11",
+            "eslint-import-context": "^0.1.8"
+          }
+        },
+        "fast-glob": {
+          "version": "3.3.3",
+          "dependencies": {
+            "merge2": "^1.3.0",
+            "micromatch": "^4.0.8",
+            "glob-parent": "^5.1.2",
+            "@nodelib/fs.stat": "^2.0.2",
+            "@nodelib/fs.walk": "^1.2.3"
+          }
+        },
+        "micromatch": {
+          "version": "4.0.8",
+          "dependencies": {
+            "braces": "^3.0.3",
+            "picomatch": "^2.3.1"
+          }
+        },
+        "tinyglobby": {
+          "version": "0.2.17",
+          "dependencies": {
+            "fdir": "^6.5.0",
+            "picomatch": "^4.0.4"
+          }
+        }
+      },
+      "reason": "悪用には攻撃者が細工したglobパターンを処理させる必要があります。現在の開発用設定には問題となる繰り返しextglobがなく、HTTP入力や動画検索をこの処理へ渡す経路も確認されませんでした。現在の設定を信頼して利用する範囲では修正版を待ってよいと判断しています。",
+      "action": "修正版の公開を待ちます。信頼できないESLint・TypeScript設定を取り込む際は、実行前にパターンを確認してください。設定・依存関係・公式情報が変わったら再調査します。",
+      "evidence": "実行用監査0件。Next.js ESLint pluginのrootDir展開、TypeScript ESLintのproject展開、import resolverのtsconfig include/exclude展開と実効ESLint設定を確認しました。修正版は未公開で、npmの14系へのダウングレード案は採用していません。"
+    }
+  ]
 }

@@ -12,6 +12,8 @@ Macを閉じている間の検知とメール通知は[GitHub上の監視手順]
 
 経路は eslint-config-next → Next.js ESLint plugin → fast-glob → micromatch、および TypeScript ESLint / TypeScript import resolver → tinyglobby → picomatch（fdir経由を含む）。悪用には攻撃者が細工した glob パターンを処理させる必要がある。確認した呼び出しは開発用のプロジェクト設定や tsconfig のパターンを扱い、動画検索やHTTPリクエストを直接渡す経路は確認されなかった。信頼できない設定を取り込んで lint を実行する場合は注意が必要。修正版の公開時に再調査し、監査結果から除外しない。npm の更新案である eslint-config-next 14系へのダウングレードは採用しない。
 
+追加調査では、実効 ESLint 設定に Next.js の `rootDir` と TypeScript ESLint の `project` の glob 指定がなく、import resolver が読む tsconfig の include/exclude にも問題となる繰り返し extglob がないことを確認した。現在の設定を信頼して使う範囲では修正版を待ってよいと判断し、`.github/security-assessments.json` に条件を保存した。監視は脆弱性を検出し続け、ソース・設定・依存関係、公式の悪用条件や修正情報、依存元6パッケージの公開版・依存指定の変化で待機判断を解除する。信頼できない設定を取り込む場合には、実行前にパターンを確認する。
+
 プレイヤーはローカル利用向けだが、`server.js` は待受ホストを限定していない。実際の外部公開・ファイアウォールの設定は未確認であり、ローカル専用の待受と断定しない。公開ギャラリーへのデプロイは別プロジェクトで、この更新の対象外。
 
 README の起動・更新案内は確認済みで、操作の変更はない。
