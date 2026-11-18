@@ -135,10 +135,10 @@ export function render(report, runUrl) {
     action = '利用している版・公開環境・悪用条件を照合し、更新の必要性と優先度を確認してください。';
   } else if (waitingForFix(report)) {
     conclusion = '今の構成では対応版を待ってよいと判断しています。追加の操作は不要です。';
-    action = '監視を続けます。依存元の新しい版、判断条件の変化、公式情報の変更があれば再調査を通知します。';
+    action = '今することはありません。監視を続け、修正版の公開や条件の変化で対応が必要になったら、このIssueでお知らせします。';
   } else if (report.findings.length) {
     conclusion = '開発用ツールの警告について、利用環境での影響を調べる必要があります。';
-    action = 'このIssueをCodexへ伝え、利用経路・悪用条件・更新候補の調査を依頼してください。';
+    action = 'このIssueのURLをCodexへ伝え、利用経路・悪用条件・更新候補の調査を依頼してください。修正や判断の記録をmainへpushすると、監視が自動で再確認し、このIssueを更新します。Run workflowの手動実行は不要です。';
   }
   const lines = [
     `**${conclusion}**`, '',
@@ -156,6 +156,11 @@ export function render(report, runUrl) {
       if (finding.fix) fix = 'npmは更新案を提示しています。安全に適用できるかは、依存元の対応と検証結果を確認して判断します。';
       if (typeof finding.fix === 'object' && finding.fix?.version) {
         fix = `npmの更新候補は${finding.fix.name} ${finding.fix.version}です。互換性の確認と検証が必要です。`;
+      }
+      if (!report.errors.length && finding.scope === 'development' && assessment?.status === 'wait') {
+        fix = typeof finding.fix === 'object' && finding.fix?.version
+          ? `npmの参考案は${finding.fix.name} ${finding.fix.version}です。これは今回の適用指示ではありません。現在の対応は下記の調査済み判断に従い、修正版を待ちます。`
+          : '現在の対応は下記の調査済み判断に従い、修正版を待ちます。追加の更新操作は不要です。';
       }
       lines.push(`- **${finding.name}** — ${scope}、重要度は${severities[finding.severity] || '未確認'}。導入版は${finding.versions.join(', ') || '取得できず'}。`, `  ${fix}`, `  [脆弱性の詳細](${finding.url})`, '');
       if (assessment) {

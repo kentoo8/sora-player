@@ -141,3 +141,22 @@ test('audit bounds retries and logs only fixed diagnostics for invalid or failed
     assert.doesNotMatch(logs.join(' '), /private-data/);
   }
 });
+
+
+test('waiting notifications require no operation while review and failures keep their action', () => {
+  const finding = { kind: 'npm', scope: 'development', name: 'picomatch', severity: 'high', versions: ['4.0.7'], range: '<=4.0.7', fix: { name: 'vite', version: '6.2.7', isSemVerMajor: true }, url: 'https://github.com/advisories/GHSA-fc5q-39xc-vjpf' };
+  const waiting = { ...healthy, findings: [finding], assessments: [{ url: finding.url, status: 'wait', reason: '調査済み', action: '修正版を待ちます。' }] };
+  const text = render(waiting, '');
+  assert.match(text, /今することはありません/);
+  assert.doesNotMatch(text, /開いたまま|返信/);
+  assert.match(text, /参考案はvite 6.2.7/);
+  assert.match(text, /今回の適用指示ではありません/);
+  assert.doesNotMatch(text, /互換性の確認と検証が必要/);
+  const review = { ...waiting, assessments: [{ url: finding.url, status: 'review' }] };
+  assert.match(render(review, ''), /IssueのURLをCodexへ/);
+  assert.match(render(review, ''), /mainへpushすると/);
+  assert.match(render(review, ''), /Run workflowの手動実行は不要/);
+  const failed = render({ ...waiting, errors: ['npm-audit-runtime-failed'] }, '');
+  assert.doesNotMatch(failed, /今することはありません|今回の適用指示ではありません/);
+  assert.match(failed, /検査を完了できていない/);
+});

@@ -20,7 +20,7 @@
           "isSemVerMajor": true
         }
       },
-      "sourceHash": "0b87afc4e960b662d598c0d59957401b0c0faf037af249d6b18f9d64fc9d1a47",
+      "sourceHash": "004c1555eaa80a34b7b60ce79fb04a5bb3d6730dc145e09513f33ed34855a66b",
       "advisoryHash": "f5a942e83d301ad35c6ead5e8872c533f261396503d5ee5f56526d7e2b473bff",
       "upstream": {
         "eslint-config-next": {
@@ -90,7 +90,7 @@
       },
       "reason": "悪用には攻撃者が細工したglobパターンを処理させる必要があります。現在の開発用設定には問題となる繰り返しextglobがなく、HTTP入力や動画検索をこの処理へ渡す経路も確認されませんでした。現在の設定を信頼して利用する範囲では修正版を待ってよいと判断しています。",
       "action": "修正版の公開を待ちます。信頼できないESLint・TypeScript設定を取り込む際は、実行前にパターンを確認してください。設定・依存関係・公式情報が変わったら再調査します。",
-      "evidence": "実行用監査0件。監視の再試行・診断ログ追加差分を再確認し、依存関係、ESLint・TypeScript設定、HTTP入力や動画検索からの利用経路に変更がないことを確認しました。実効ESLint設定にrootDir・projectのglob指定はなく、tsconfigのinclude/excludeにも問題となる繰り返しextglobはありません。公式アドバイザリと依存元6パッケージの公開版・依存指定は保存時と一致し、picomatchの最新版4.0.7にも修正版はありません。npmの14系へのダウングレード案は採用していません。 mainへのpush時の監視起動追加は利用経路・悪用条件を変えないことを差分で再確認し、公式情報と依存元の公開版・依存指定も再照合しました。"
+      "evidence": "実行用監査0件。監視の再試行・診断ログ追加差分を再確認し、依存関係、ESLint・TypeScript設定、HTTP入力や動画検索からの利用経路に変更がないことを確認しました。実効ESLint設定にrootDir・projectのglob指定はなく、tsconfigのinclude/excludeにも問題となる繰り返しextglobはありません。公式アドバイザリと依存元6パッケージの公開版・依存指定は保存時と一致し、picomatchの最新版4.0.7にも修正版はありません。npmの14系へのダウングレード案は採用していません。 mainへのpush時の監視起動追加と通知文面の変更は利用経路・悪用条件を変えないことを差分で再確認し、公式情報と依存元の公開版・依存指定も再照合しました。"
     }
   ]
 }
