@@ -2,6 +2,22 @@
 
 Macを閉じている間の検知とメール通知は[GitHub上の監視手順](cloud-security-monitor.md)を参照する。
 
+## 2026-11-18 の依存関係調査
+
+- Next.js と eslint-config-next を最新安定版 16.4.6 に更新した。[キャッシュの情報漏えい](https://github.com/advisories/GHSA-mfr8-8qww-v76h)は 16.4.5 で修正済み。更新前のソースにも `use cache` と `unstable_cache()` の併用、root params の利用はなく、成立条件には該当しなかった。
+- TypeScript ESLint を 8.73.0 に更新し、依存元の正式な指定 `minimatch: ^11.0.1` に従って 11.0.9 を導入した。[minimatch の問題](https://github.com/advisories/GHSA-g3hv-75wg-m249)は 11.0.1 で修正済み。旧版の待機判断は不要になったため削除した。3.1.5 も別経路で残るが、この問題の影響範囲（7以上11.0.1未満）には含まれない。
+- Node.js は公式配布一覧で最新安定版が 26.13.1 であることを確認し、指定を維持した。27系はプレリリース。
+
+再監査では、開発用の [picomatch の ReDoS](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) が残る。公式情報では 4.0.7 以下が対象で修正版はなく、npm の最新版も 4.0.7。導入されている 2.3.2 と 4.0.7 は対象で、依存元への波及込みで High 14件と表示されるが、アドバイザリは1件。
+
+経路は eslint-config-next → Next.js ESLint plugin → fast-glob → micromatch、および TypeScript ESLint / TypeScript import resolver → tinyglobby → picomatch（fdir経由を含む）。悪用には攻撃者が細工した glob パターンを処理させる必要がある。確認した呼び出しは開発用のプロジェクト設定や tsconfig のパターンを扱い、動画検索やHTTPリクエストを直接渡す経路は確認されなかった。信頼できない設定を取り込んで lint を実行する場合は注意が必要。修正版の公開時に再調査し、監査結果から除外しない。npm の更新案である eslint-config-next 14系へのダウングレードは採用しない。
+
+プレイヤーはローカル利用向けだが、`server.js` は待受ホストを限定していない。実際の外部公開・ファイアウォールの設定は未確認であり、ローカル専用の待受と断定しない。公開ギャラリーへのデプロイは別プロジェクトで、この更新の対象外。
+
+README の起動・更新案内は確認済みで、操作の変更はない。
+
+Node.js 26.13.1 で `npm ci --ignore-scripts`、テスト26件、監視テスト12件、lint、型チェック、`npm run build -- --webpack` が成功した。実行用監査は0件。インストール時には既存の ESLint 10 と一部プラグインの peer dependency 警告が出るが、lint は成功した。標準の Turbopack ビルドは実行環境のポート利用制限により失敗しており、成功未確認。ブラウザ上の一覧・検索・再生・音声・タグ編集は利用者による確認が必要。
+
 ## 更新後の確認
 
 依存関係の再現にはロックファイルを使う。`npm ci` は既存の node_modules を入れ替える。
