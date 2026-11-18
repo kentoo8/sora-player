@@ -1,6 +1,8 @@
 name: Sora security monitor
 
 on:
+  push:
+    branches: [main]
   schedule:
     # 毎日07:00（日本時間）。GitHubの混雑で遅れる場合があります。
     - cron: '0 22 * * *'

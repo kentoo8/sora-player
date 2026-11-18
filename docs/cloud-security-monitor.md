@@ -1,6 +1,6 @@
 # Macを閉じている間のセキュリティ確認
 
-GitHub Actionsの「Sora security monitor」が、GitHub上のmainを毎日07:00（日本時間）に確認する。Macの起動は不要。Node.jsはmise.tomlの指定版で実行し、ロックファイルのnpm監査を実行用・開発用に分ける。パッケージのインストールは不要。
+GitHub Actionsの「Sora security monitor」が、mainへのpush後と毎日07:00（日本時間）に、GitHub上のmainを確認する。Macの起動は不要。Node.jsはmise.tomlの指定版で実行し、ロックファイルのnpm監査を実行用・開発用に分ける。パッケージのインストールは不要。
 
 Node.js本体はnpm監査の対象外。公式配布一覧のsecurity指定から、同一メジャー内の新しい修正版を探し、公式サポート期限も確認する。修正版の公開前予告や、公開サイトでの悪用可否の判断はこの処理の対象に含めない。必要な判断・更新準備は既存のローカル監視と手動確認を併用する。
 
@@ -11,7 +11,7 @@ Node.js本体はnpm監査の対象外。公式配布一覧のsecurity指定か�
 3. リポジトリのWatchでCustomのIssuesとSecurity alertsを購読する。
 4. GitHubの[通知設定](https://github.com/settings/notifications)で、Participating, @mentions and customのEmailとOn GitHubを有効にする。検証済みの通知先メールを選び、Security alertsのメールとActionsの失敗通知も有効にする。
 5. Actionsタブで「Sora security monitor」を開く。Run workflowの「受信確認用のテストIssueを作る」を選び実行する。テストIssue、メール、必要ならGitHubアプリの通知を確認し、受信確認後にテストIssueを閉じる。
-6. テスト項目を選ばず通常実行する。実行履歴が成功し、検出があれば監視Issueが作られることを確認する。
+6. mainへのpushで通常の監視が自動実行される。実行履歴が成功し、検出があれば監視Issueが作成・更新されることを確認する。push後にRun workflowを手動実行する必要はない。必要な場合だけ、テスト項目を選ばず通常実行できる。
 
 Actionsを利用禁止にしている場合やIssue作成権限の制限がある場合は、実行結果に従って設定を確認する。外部の送信サービスや個人用トークンの登録は不要。GitHubが登録済みの通知先へ送信する。Issueの作成成功とメール受信は別に確認する。
 
