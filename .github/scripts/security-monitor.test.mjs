@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pinnedNode, nodeFindings, auditFindings, fingerprint, publish, render, notificationTitle } from './security-monitor.mjs';
+import { pinnedNode, nodeFindings, auditFindings, collectAudit, fingerprint, publish, render, notificationTitle } from './security-monitor.mjs';
 
 const schedule = { v26: { end: '2029-04-30' } };
 const releases = [
@@ -106,4 +106,38 @@ test('notification wording separates development warnings, failures, fixes and r
   assert.doesNotMatch(render(failed, ''), /追加の操作は不要|検出はありません/);
   assert.match(notificationTitle({ ...healthy, findings: [{ kind: 'node-security-release' }] }), /修正版あり/);
   assert.match(notificationTitle(healthy), /解消確認/);
+});
+
+
+test('audit retries a timeout and accepts a complete advisory report with exit code 1', () => {
+  const logs = [];
+  let calls = 0;
+  const advisory = { name: 'example', url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc' };
+  const audit = { metadata: { vulnerabilities: { total: 1 } }, vulnerabilities: { example: { via: [advisory] } } };
+  const findings = collectAudit('runtime', ['--omit=dev'], {}, (command, args, options) => {
+    assert.equal(command, 'npm');
+    assert.ok(args.includes('--omit=dev'));
+    assert.equal(options.timeout, 90000);
+    calls++;
+    return calls === 1 ? { status: null, error: { code: 'ETIMEDOUT' }, stderr: 'private-data' } : { status: 1, stdout: JSON.stringify(audit) };
+  }, line => logs.push(line));
+  assert.equal(calls, 2);
+  assert.equal(findings.length, 1);
+  assert.deepEqual(logs, ['npm audit scope=runtime attempt=1/2 reason=timeout']);
+});
+
+test('audit bounds retries and logs only fixed diagnostics for invalid or failed reports', () => {
+  for (const result of [
+    { status: 1, stdout: JSON.stringify({ error: { summary: 'private-data' } }) },
+    { status: 0, stdout: 'private-data' },
+    { status: 2, stderr: 'private-data' },
+    { status: 0, stdout: JSON.stringify({ metadata: { vulnerabilities: { total: 1 } }, vulnerabilities: {} }) },
+  ]) {
+    let calls = 0;
+    const logs = [];
+    assert.throws(() => collectAudit('all', [], {}, () => { calls++; return result; }, line => logs.push(line)));
+    assert.equal(calls, 2);
+    assert.equal(logs.length, 2);
+    assert.doesNotMatch(logs.join(' '), /private-data/);
+  }
 });

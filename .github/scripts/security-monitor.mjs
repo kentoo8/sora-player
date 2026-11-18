@@ -58,6 +58,25 @@ async function json(url, options = {}) {
   return response.json();
 }
 
+// Keep raw npm output out of public logs: it can contain local paths or registry credentials.
+export function collectAudit(scope, flags, lock, run = spawnSync, log = console.warn) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let reason = 'invalid-report';
+    try {
+      const result = run('npm', ['audit', '--json', '--ignore-scripts', '--fetch-timeout=20000', '--fetch-retries=0', ...flags], { encoding: 'utf8', timeout: 90000, maxBuffer: 10 * 1024 * 1024 });
+      if (result.error || ![0, 1].includes(result.status)) {
+        reason = result.error?.code === 'ETIMEDOUT' ? 'timeout' : 'command-failed';
+      } else {
+        const audit = JSON.parse(result.stdout);
+        if (audit.error) reason = 'registry-error';
+        else return auditFindings(audit, scope, lock);
+      }
+    } catch { /* Parsing and validation failures remain failures after retrying. */ }
+    log(`npm audit scope=${scope} attempt=${attempt}/2 reason=${reason}`);
+  }
+  throw new Error('監査を2回試みましたが完了できませんでした');
+}
+
 async function collect() {
   const findings = [];
   const errors = [];
@@ -66,9 +85,7 @@ async function collect() {
   const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
   for (const [scope, flags] of [['all', []], ['runtime', ['--omit=dev']]]) {
     try {
-      const result = spawnSync('npm', ['audit', '--json', '--ignore-scripts', '--fetch-timeout=20000', '--fetch-retries=0', ...flags], { encoding: 'utf8', timeout: 60000, maxBuffer: 10 * 1024 * 1024 });
-      if (![0, 1].includes(result.status) || result.error) throw new Error('監査コマンド失敗');
-      findings.push(...auditFindings(JSON.parse(result.stdout), scope, lock));
+      findings.push(...collectAudit(scope, flags, lock));
     } catch { errors.push(`npm-audit-${scope}-failed`); }
   }
   try {

@@ -79,6 +79,7 @@ npm run open
 ## 関連ドキュメント
 公開用ギャラリーの運用手順は [docs/gallery-publish.md](docs/gallery-publish.md) にあります。
 更新後の確認方法と未解決事項は [セキュリティ保守](docs/security-maintenance.md) を参照してください。
+監視の通知が届いた場合の対応と再実行方法は [クラウド監視](docs/cloud-security-monitor.md) を参照してください。
 
 ## 補足
 @hio1345は作者のSora2アカウント名でした
