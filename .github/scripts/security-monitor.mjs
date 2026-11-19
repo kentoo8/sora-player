@@ -1,8 +1,7 @@
 import { readFile, writeFile, appendFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { assessReport } from './security-assessments.mjs';
+import { assessReport, digest } from './security-assessments.mjs';
 
 const marker = '<!-- sora-security-monitor:v1 -->';
 const indexUrl = 'https://nodejs.org/dist/index.json';
@@ -98,7 +97,27 @@ async function collect() {
 }
 
 export function fingerprint(report) {
-  return createHash('sha256').update(JSON.stringify(report)).digest('hex');
+  // 通知文の推敲・調査記録の追記と、対応判断の変化を分離する。
+  const ordered = items => items.sort((a, b) => digest(a).localeCompare(digest(b)));
+  return digest({
+    version: report.version,
+    findings: ordered(report.findings.map(finding => ({
+      ...finding,
+      ...(finding.versions ? { versions: [...finding.versions].sort() } : {}),
+    }))),
+    errors: [...new Set(report.errors)].sort(),
+    assessments: ordered(report.findings.filter(finding => finding.kind === 'npm').map(finding => {
+      const assessment = report.assessments?.find(item => item.url === finding.url);
+      const status = assessment?.status || 'review';
+      return {
+        url: finding.url,
+        status,
+        // 再調査中にさらに条件が変わった場合も通知する。
+        ...(status === 'review' && assessment?.observedConditions
+          ? { observedConditions: assessment.observedConditions } : {}),
+      };
+    })),
+  });
 }
 
 function waitingForFix(report) {

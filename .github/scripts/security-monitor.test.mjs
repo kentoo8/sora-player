@@ -160,3 +160,59 @@ test('waiting notifications require no operation while review and failures keep 
   assert.doesNotMatch(failed, /今することはありません|今回の適用指示ではありません/);
   assert.match(failed, /検査を完了できていない/);
 });
+
+
+test('only meaningful state changes post notifications, regardless of explanatory edits or ordering', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = { ...process.env };
+  process.env.GITHUB_REPOSITORY = 'example/project';
+  process.env.GITHUB_TOKEN = 'test-only';
+  process.env.GITHUB_RUN_ID = '42';
+  const finding = { kind: 'npm', scope: 'development', name: 'picomatch', severity: 'high', versions: ['4.0.6', '4.0.7'], range: '<=4.0.7', fix: false, url: 'https://github.com/advisories/GHSA-fc5q-39xc-vjpf' };
+  const baseline = { ...healthy, findings: [finding], assessments: [{ url: finding.url, status: 'wait', reason: '調査済み', action: '待機', evidence: '初回調査' }] };
+  let saved = baseline;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push(options.method);
+    return { ok: true, json: async () => options.method === 'GET'
+      ? [{ number: 9, user: { login: 'github-actions[bot]' }, body: `<!-- sora-security-monitor:v1 -->\n<!-- state:${fingerprint(saved)} -->` }]
+      : {} };
+  };
+  try {
+    const edited = { ...baseline, findings: [{ ...finding, versions: [...finding.versions].reverse() }], assessments: [{ ...baseline.assessments[0], reason: '説明を改善', action: '同じ対応を明確化', evidence: '再確認の記録を追記' }] };
+    await publish(edited, false);
+    assert.deepEqual(calls, ['GET']);
+    for (const changed of [
+      { ...baseline, findings: [{ ...finding, severity: 'critical' }] },
+      { ...baseline, findings: [{ ...finding, versions: ['4.0.8'] }] },
+      { ...baseline, findings: [{ ...finding, scope: 'runtime' }] },
+      { ...baseline, findings: [{ ...finding, fix: { name: 'vite', version: '9.0.0' } }] },
+      { ...baseline, assessments: [{ ...baseline.assessments[0], status: 'review', observedConditions: 'new-source' }] },
+      { ...baseline, errors: ['assessment-evidence-failed'] },
+      healthy,
+    ]) {
+      calls.length = 0;
+      await publish(changed, false);
+      assert.deepEqual(calls, ['GET', 'POST', 'PATCH']);
+    }
+    saved = { ...baseline, assessments: [{ url: finding.url, status: 'review', observedConditions: 'source-before' }] };
+    calls.length = 0;
+    await publish({ ...saved, assessments: [{ ...saved.assessments[0], observedConditions: 'source-after' }] }, false);
+    assert.deepEqual(calls, ['GET', 'POST', 'PATCH']);
+    calls.length = 0;
+    await publish(baseline, false);
+    assert.deepEqual(calls, ['GET', 'POST', 'PATCH']);
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env = originalEnv;
+  }
+});
+
+test('notification comparison ignores object and collection ordering', () => {
+  const a = { kind: 'node-eol', version: '26.13.1', end: '2029-04-30' };
+  const b = { kind: 'node-security-release', version: '26.13.1', fixed: 'v26.14.0' };
+  assert.equal(
+    fingerprint({ ...healthy, findings: [a, b], errors: ['a', 'b'] }),
+    fingerprint({ ...healthy, findings: [{ fixed: b.fixed, version: b.version, kind: b.kind }, a], errors: ['b', 'a', 'a'], assessments: [] }),
+  );
+});
